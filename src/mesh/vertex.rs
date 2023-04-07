@@ -1,7 +1,6 @@
-use std::collections::HashSet;
 use std::fmt;
 
-#[derive(Hash, Eq, PartialEq, Debug)]
+#[derive(Hash, Eq, PartialEq, Debug, Clone, Default)]
 pub struct Vertex {
 	x: i32,
 	y: i32,

@@ -1,12 +1,10 @@
-mod vertex;
-mod edge;
-
-use vertex::Vertex;
-use edge::Edge;
+mod mesh;
+use mesh::Mesh;
 
 fn main() {
     println!("Hello, world!");
-	let v = Vertex::new(1, 1);
-	println!("v: ({}, {})", v.x(), v.y());
-	println!("{}", v);
+
+	let mut my_mesh = Mesh::new();
+	let mut my_img_mesh = Mesh::from_image(10, 10);
+	
 }

@@ -1,26 +1,28 @@
-use std::collections::HashSet;
+use std::ops::Index; 
 
 use super::vertex::Vertex;
 use super::edge::Edge;
 
 #[derive(Hash, Eq, PartialEq, Debug)]
-struct Triangle {
-	edge: &Edge,
+pub struct Triangle {
+	edge: usize,
 }
-
-impl Index for Triangle {
-	fn index(&mut self, index: u32) -> &Vertex {
+/*
+impl Index<u32> for Triangle {
+	type Output = Vertex;
+	fn index(&self, index: u32) -> &Vertex {
 		match index {
 			0 => self.edge.start(),
 			1 => self.edge.end(),
-			2 => self.edge.next().end(),
+			2 => self.edge.next().expect("Triangle.edge().next() does not exist!").end(),
 			_ => panic!("Unknown point {} (triangles only have three points dummy)", index),
 		}
 	}
 }
-
+*/
 impl Triangle {
-	pub fn new(edge: &Edge) -> Triangle { Triangle { edge: edge } }
+	
+	pub fn new(edge: usize) -> Triangle { Triangle { edge: edge } }
 	/*
 	pub fn neighboors(&self) -> Vec<&Triangles> {
 		let mut neighboors: Vec<&Triangles> = Vec::new();
