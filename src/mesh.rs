@@ -19,8 +19,32 @@ pub struct Mesh {
 impl Mesh {
 	pub fn new() -> Mesh { Mesh { verticies: vec![], edges: vec![], triangles: vec![], vertex_map: HashMap::new(), edge_map: HashMap::new() } }
 	
-	pub fn from_image(width: u32, height: u32) -> Mesh { 
-		Mesh { verticies: vec![], edges: vec![], triangles: vec![], vertex_map: HashMap::new(), edge_map: HashMap::new() }
+	pub fn from_image(width: usize, height: usize) -> Mesh {
+		if width < 2 || height < 2 {
+			return Mesh::new();
+		}
+		
+		let mut mesh = Mesh::new();
+		
+		let mut vs = vec![vec![0; height+1]; width + 1];
+		// make the verticies
+		for i in 0..width {
+			for j in 0..height {
+				vs[i][j] = mesh.verticies.len();
+				mesh.get_or_add_vertex(i as i32, j as i32);
+			}
+		}
+		
+		// create the edges and faces
+		for i in 0..(width-1) {
+			for j in 0..(height -1) {
+				
+				mesh.add_triangle();
+			}
+		}
+		mesh.add_triangle([vs[0][0], vs[1][0], vs[0][1]]);
+		
+		mesh
 	}
 	
 	pub fn get_or_add_vertex(&mut self, x: i32, y: i32) -> &Vertex {
@@ -56,12 +80,12 @@ impl Mesh {
 		self.triangles.push(tri);
 	}
 	
-	fn add_triangle_to_edge(&mut self, edge_index: usize, vertex_index: usize) {
+	/*fn add_triangle_to_edge(&mut self, edge_index: usize, vertex_index: usize) {
 		let vi1 = self.get_edge(edge_index).get_end();
 		let vi2 = self.get_edge(edge_index).get_start();
 		
 		self.add_triangle([vi1, vi2, vertex_index]);
-	}
+	}*/
 	
 	//pub fn length(&self, edge: usize) -> f64 { ( ( i32::pow(self.get() - self.start.x(), 2) + i32::pow(self.end.y() - self.start.y(), 2) ) as f64 ).sqrt() }
 	/*
