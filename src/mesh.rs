@@ -39,7 +39,7 @@ impl Mesh {
 		for i in 0..(width-1) {
 			for j in 0..(height -1) {
 				
-				mesh.add_triangle();
+				//mesh.add_triangle();
 			}
 		}
 		mesh.add_triangle([vs[0][0], vs[1][0], vs[0][1]]);
