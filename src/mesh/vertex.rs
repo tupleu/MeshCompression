@@ -18,4 +18,5 @@ impl Vertex {
 	pub fn x(&self) -> i32 { self.x }
 	pub fn y(&self) -> i32 { self.y }
 	
+	pub fn pos(&self) -> (i32, i32) { (self.x, self.y) }
 }

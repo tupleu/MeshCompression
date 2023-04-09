@@ -15,6 +15,12 @@ impl Edge {
 	pub fn get_start(&self) -> usize { self.start }
 	pub fn get_end(&self) -> usize { self.end }
 	
+	pub fn set_opposite(&mut self, edge: i32) {
+		if edge >= 0 {
+			self.opposite = Some(edge as usize);
+		}
+	}
+	
 	//pub fn start(&self) -> &Vertex { self.start }
 	//pub fn end(&self) -> &Vertex { self.end }
 	//pub fn triangle(&self) -> &Triangle { self.triangle }

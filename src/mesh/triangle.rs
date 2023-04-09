@@ -1,8 +1,3 @@
-use std::ops::Index; 
-
-use super::vertex::Vertex;
-use super::edge::Edge;
-
 #[derive(Hash, Eq, PartialEq, Debug)]
 pub struct Triangle {
 	edge: usize,
