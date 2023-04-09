@@ -1,7 +1,8 @@
-mod mesh;
-use mesh::Mesh;
+#![allow(unused_imports)]
+#![allow(dead_code)]
+
 mod render;
-use render::{Vertex, run};
+use render::{Vertex, Mesh, run};
 
 const VERTICES: &[Vertex] = &[
     Vertex {
@@ -48,5 +49,8 @@ const INDICES: &[u16] = &[
 ];
 
 fn main() {
+	let img_mesh = Mesh::from_image(10, 10);
+    //pollster::block_on(run(img_mesh.verticies(), img_mesh.indicies()));
     pollster::block_on(run(VERTICES, INDICES));
+	println!("test");
 }

@@ -1,6 +1,6 @@
 #[derive(Hash, Eq, PartialEq, Debug)]
 pub struct Triangle {
-	edge: usize,
+	edge: u16,
 }
 /*
 impl Index<u32> for Triangle {
@@ -17,7 +17,7 @@ impl Index<u32> for Triangle {
 */
 impl Triangle {
 	
-	pub fn new(edge: usize) -> Triangle { Triangle { edge: edge } }
+	pub fn new(edge: u16) -> Triangle { Triangle { edge: edge } }
 	/*
 	pub fn neighboors(&self) -> Vec<&Triangles> {
 		let mut neighboors: Vec<&Triangles> = Vec::new();
