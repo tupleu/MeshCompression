@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use image::DynamicImage;
 
 pub mod vertex;
 mod edge;
@@ -18,33 +19,29 @@ pub struct Mesh {
 impl Mesh {
 	pub fn new() -> Mesh { Mesh { verticies: vec![], edges: vec![], triangles: vec![], vertex_map: HashMap::new(), edge_map: HashMap::new() } }
 	
-	pub fn from_image(width: usize, height: usize) -> Mesh {
-		if width < 2 || height < 2 {
-			return Mesh::new();
-		}
+	pub fn from_image(dimg: DynamicImage) -> Mesh {
+		let width = dimg.width() as usize;
+		let height = dimg.height() as usize;
+		let img = dimg.to_rgb32f();
 		
 		let mut mesh = Mesh::new();
 		
 		let mut vs = vec![vec![0; height+1]; width + 1];
 		// make the verticies
-		for i in 0..width {
-			for j in 0..height {
-				vs[i][j] = mesh.verticies.len();
-				mesh.get_or_add_vertex(i as f32, j as f32, Some([1.0, 0.0, 0.0]));
-			}
+		for (i, j, pixel) in img.enumerate_pixels() {
+			vs[i as usize][j as usize] = mesh.verticies.len();
+			mesh.get_or_add_vertex(i as f32, j as f32, Some(pixel.0));
 		}
 		
 		// create the edges and faces
-		for i in 0..width {			
-			let i = i as f32;
-			for j in 0..height {
-				let j = j as f32;
-				mesh.add_triangle((i,j), (i,j+1.0), (i+1.0,j));
-				mesh.add_triangle((i,j+1.0), (i+1.0,j), (i+1.0,j+1.0));
-			}
+		for (i, j, _) in img.enumerate_pixels() {
+			let x = i as f32;
+			let y = j as f32;
+			
+			mesh.add_triangle((x,y), (x,y+1.0), (x+1.0,y));
+			mesh.add_triangle((x,y+1.0), (x+1.0,y), (x+1.0,y+1.0));
 		}
-		//mesh.add_triangle([vs[0][0], vs[1][0], vs[0][1]]);
-		
+		// Return the mesh		
 		mesh
 	}
 	
