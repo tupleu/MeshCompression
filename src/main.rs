@@ -6,8 +6,6 @@ use render::{Vertex, Mesh, run};
 
 use image::GenericImageView;
 
-use image::GenericImageView;
-
 fn test_vertices() -> (Vec<Vertex>, Vec<u16>) {
     let vertices: &[Vertex] = &[
         Vertex {
@@ -56,12 +54,11 @@ fn test_vertices() -> (Vec<Vertex>, Vec<u16>) {
     (vertices.to_vec(), indices.to_vec())
 }
 fn main() {
-	let _img1 = image::open("./../../tests/test1.jpg").unwrap();
+	let _img1 = image::open("./tests/mario.webp").unwrap();
 	//let _img2 = image::open("./../../tests/test2-small.jpeg").unwrap();
 	//let _img3 = image::open("./../../tests/test3.jpg").unwrap();
 	//let _img4 = image::open("./../../tests/test4.jpg").unwrap();
 	
 	let img_mesh = Mesh::from_image(_img1);
-    //pollster::block_on(run(img_mesh.verticies(), img_mesh.indicies()));
-    pollster::block_on(run(VERTICES, INDICES));
+    pollster::block_on(run(img_mesh.vertices(), img_mesh.indices()));
 }
