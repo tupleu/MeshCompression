@@ -1,3 +1,5 @@
+mod mesh;
+use mesh::Mesh;
 mod render;
 use render::{Vertex, run};
 
