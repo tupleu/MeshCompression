@@ -9,7 +9,7 @@ use self::edge::Edge;
 //use self::triangle::Triangle;
 
 pub struct Mesh {
-	verticies: Vec<Vertex>,
+	vertices: Vec<Vertex>,
 	edges: Vec<Edge>,
 	triangles: Vec<u16>,
 	vertex_map: HashMap<Point, u16>,
@@ -17,7 +17,7 @@ pub struct Mesh {
 }
 
 impl Mesh {
-	pub fn new() -> Mesh { Mesh { verticies: vec![], edges: vec![], triangles: vec![], vertex_map: HashMap::new(), edge_map: HashMap::new() } }
+	pub fn new() -> Mesh { Mesh { vertices: vec![], edges: vec![], triangles: vec![], vertex_map: HashMap::new(), edge_map: HashMap::new() } }
 	
 	pub fn from_image(dimg: DynamicImage) -> Mesh {
 		let width = dimg.width() as usize;
@@ -28,28 +28,32 @@ impl Mesh {
 		
 		let mut vs = vec![vec![0; height+1]; width + 1];
 		// make the verticies
+		let min_d = if width < height { width } else { height } as f32;
 		for (i, j, pixel) in img.enumerate_pixels() {
-			vs[i as usize][j as usize] = mesh.verticies.len();
-			mesh.get_or_add_vertex(i as f32, j as f32, Some(pixel.0));
+			vs[i as usize][j as usize] = mesh.vertices.len();
+			mesh.get_or_add_vertex(2.0*(i as f32)/min_d-1.0, 1.0-2.0*(j as f32)/min_d, Some(pixel.0));
 		}
 		
 		// create the edges and faces
 		for (i, j, _) in img.enumerate_pixels() {
 			let x = i as f32;
 			let y = j as f32;
-			
-			mesh.add_triangle((x,y), (x,y+1.0), (x+1.0,y));
-			mesh.add_triangle((x,y+1.0), (x+1.0,y), (x+1.0,y+1.0));
+			mesh.add_triangle((2.0*(x as f32)/min_d-1.0, 1.0-2.0*(y as f32)/min_d),
+								(2.0*(x as f32)/min_d-1.0, 1.0-2.0*(y+1 as f32)/min_d),
+								(2.0*(x+1 as f32)/min_d-1.0, 1.0-2.0*(y as f32)/min_d));
+			mesh.add_triangle((2.0*(x as f32)/min_d-1.0, 1.0-2.0*(y+1 as f32)/min_d),
+								(2.0*(x+1 as f32)/min_d-1.0, 1.0-2.0*(y+1 as f32)/min_d),
+								(2.0*(x+1 as f32)/min_d-1.0, 1.0-2.0*(y as f32)/min_d));
 		}
 		// Return the mesh		
 		mesh
 	}
 	
-	pub fn verticies(&self) -> &Vec<Vertex> {
-		return &self.verticies;
+	pub fn vertices(&self) -> &Vec<Vertex> {
+		return &self.vertices;
 	}
 	
-	pub fn indicies(&self) -> &Vec<u16> {
+	pub fn indices(&self) -> &Vec<u16> {
 		return &self.triangles;
 	}
 	
@@ -57,14 +61,14 @@ impl Mesh {
 		if let Some(index) = self.vertex_map.get(&Point::new(x, y)) {
 			return *index;
 		}
-		let index = self.verticies.len() as u16;
-		self.verticies.push( Vertex::new(x, y, color.unwrap_or([0.0, 0.0, 0.0])) );
+		let index = self.vertices.len() as u16;
+		self.vertices.push( Vertex::new(x, y, color.unwrap_or([0.0, 0.0, 0.0])) );
 		self.vertex_map.insert(Point::new(x, y), index);
 		index
 	}
 	
 	pub fn get_vertex(&self, index: u16) -> &Vertex {
-		&self.verticies[index as usize]
+		&self.vertices[index as usize]
 	}
 	
 	pub fn get_edge(&self, index: u16) -> &Edge {
@@ -114,7 +118,7 @@ impl Mesh {
 			v1 = self.get_vertex(e_temp.get_start()).pos();
 		}
 		
-		let vertecies = [self.get_or_add_vertex(v1.0, v1.1, None),
+		let vertices = [self.get_or_add_vertex(v1.0, v1.1, None),
 						 self.get_or_add_vertex(v2.0, v2.1, None),
 						 self.get_or_add_vertex(v3.0, v3.1, None)];
 						 
@@ -123,8 +127,8 @@ impl Mesh {
 		for index in 0..3 {
 			let index_clamped = (index + 1) % 3;
 			let next_edge_index = index_clamped + edges_len;
-			let v_start = vertecies[index] as u16;
-			let v_end = vertecies[index_clamped] as u16;
+			let v_start = vertices[index] as u16;
+			let v_end = vertices[index_clamped] as u16;
 			let mut edge = Edge::new(v_start, v_end, next_edge_index as u16);
 			edge.set_opposite(ei[index]);
 			if ei[index] >= 0 {
@@ -135,9 +139,9 @@ impl Mesh {
 			self.edges.push(edge);
 			self.edge_map.insert((v_start, v_end), (edges_len + index) as u16);
 		}
-		self.triangles.push(vertecies[0]);
-		self.triangles.push(vertecies[1]);
-		self.triangles.push(vertecies[2]);
+		self.triangles.push(vertices[0]);
+		self.triangles.push(vertices[1]);
+		self.triangles.push(vertices[2]);
 	}
 	/*
 	fn add_triangle_to_edge(&mut self, edge_index: usize, vertex: (i32, i32)) {
