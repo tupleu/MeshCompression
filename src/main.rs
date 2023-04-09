@@ -52,8 +52,9 @@ fn test_vertices() -> (Vec<Vertex>, Vec<u16>) {
     (vertices.to_vec(), indices.to_vec())
 }
 fn main() {
-	// let img_mesh = Mesh::from_image(10, 10);
-    // pollster::block_on(run(img_mesh.vertices(), img_mesh.indices()));
-    let (vertices, indices) = test_vertices();
-    pollster::block_on(run(&vertices, &indices));
+	let img_mesh = Mesh::from_image(10, 10);
+    // println!("{:?},{:?}",img_mesh.vertices(), img_mesh.indices());
+    pollster::block_on(run(img_mesh.vertices(), img_mesh.indices()));
+    // let (vertices, indices) = test_vertices();
+    // pollster::block_on(run(&vertices, &indices));
 }

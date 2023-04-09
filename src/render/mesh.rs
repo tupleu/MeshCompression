@@ -27,10 +27,11 @@ impl Mesh {
 		
 		let mut vs = vec![vec![0; height+1]; width + 1];
 		// make the verticies
+		let min_d = if width < height { width } else { height } as f32;
 		for i in 0..width {
 			for j in 0..height {
 				vs[i][j] = mesh.vertices.len();
-				mesh.get_or_add_vertex(i as f32, j as f32, Some([1.0, 0.0, 0.0]));
+				mesh.get_or_add_vertex(2.0*(i as f32)/min_d-1.0, 2.0*(j as f32)/min_d-1.0, Some([1.0, 0.0, 0.0]));
 			}
 		}
 		
@@ -39,8 +40,14 @@ impl Mesh {
 			let i = i as f32;
 			for j in 0..height {
 				let j = j as f32;
-				mesh.add_triangle((i,j), (i,j+1.0), (i+1.0,j));
-				mesh.add_triangle((i,j+1.0), (i+1.0,j), (i+1.0,j+1.0));
+				mesh.add_triangle((2.0*(i as f32)/min_d-1.0, 2.0*(j as f32)/min_d-1.0),
+								  (2.0*(i+1 as f32)/min_d-1.0, 2.0*(j as f32)/min_d-1.0),
+								  (2.0*(i as f32)/min_d-1.0, 2.0*(j+1 as f32)/min_d-1.0));
+				mesh.add_triangle((2.0*(i as f32)/min_d-1.0, 2.0*(j+1 as f32)/min_d-1.0),
+								  (2.0*(i+1 as f32)/min_d-1.0, 2.0*(j as f32)/min_d-1.0),
+								  (2.0*(i+1 as f32)/min_d-1.0, 2.0*(j+1 as f32)/min_d-1.0));
+				// mesh.add_triangle((i,j), (i+1.0,j), (i,j+1.0));
+				// mesh.add_triangle((i,j+1.0), (i+1.0,j), (i+1.0,j+1.0));
 			}
 		}
 		//mesh.add_triangle([vs[0][0], vs[1][0], vs[0][1]]);
@@ -117,7 +124,7 @@ impl Mesh {
 			v1 = self.get_vertex(e_temp.get_start()).pos();
 		}
 		
-		let vertecies = [self.get_or_add_vertex(v1.0, v1.1, None),
+		let vertices = [self.get_or_add_vertex(v1.0, v1.1, None),
 						 self.get_or_add_vertex(v2.0, v2.1, None),
 						 self.get_or_add_vertex(v3.0, v3.1, None)];
 						 
@@ -126,8 +133,8 @@ impl Mesh {
 		for index in 0..3 {
 			let index_clamped = (index + 1) % 3;
 			let next_edge_index = index_clamped + edges_len;
-			let v_start = vertecies[index] as u16;
-			let v_end = vertecies[index_clamped] as u16;
+			let v_start = vertices[index] as u16;
+			let v_end = vertices[index_clamped] as u16;
 			let mut edge = Edge::new(v_start, v_end, next_edge_index as u16);
 			edge.set_opposite(ei[index]);
 			if ei[index] >= 0 {
@@ -138,9 +145,9 @@ impl Mesh {
 			self.edges.push(edge);
 			self.edge_map.insert((v_start, v_end), (edges_len + index) as u16);
 		}
-		self.triangles.push(vertecies[0]);
-		self.triangles.push(vertecies[1]);
-		self.triangles.push(vertecies[2]);
+		self.triangles.push(vertices[0]);
+		self.triangles.push(vertices[1]);
+		self.triangles.push(vertices[2]);
 	}
 	/*
 	fn add_triangle_to_edge(&mut self, edge_index: usize, vertex: (i32, i32)) {
