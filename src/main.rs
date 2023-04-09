@@ -52,12 +52,11 @@ const INDICES: &[u16] = &[
 
 fn main() {
 	let _img1 = image::open("./../../tests/test1.jpg").unwrap();
-	let _img2 = image::open("./../../tests/test2-small.jpeg").unwrap();
-	let _img3 = image::open("./../../tests/test3.jpg").unwrap();
-	let _img4 = image::open("./../../tests/test4.jpg").unwrap();
+	//let _img2 = image::open("./../../tests/test2-small.jpeg").unwrap();
+	//let _img3 = image::open("./../../tests/test3.jpg").unwrap();
+	//let _img4 = image::open("./../../tests/test4.jpg").unwrap();
 	
 	let img_mesh = Mesh::from_image(_img1);
     //pollster::block_on(run(img_mesh.verticies(), img_mesh.indicies()));
     pollster::block_on(run(VERTICES, INDICES));
-	println!("test");
 }

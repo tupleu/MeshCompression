@@ -31,7 +31,6 @@ impl Mesh {
 		for (i, j, pixel) in img.enumerate_pixels() {
 			vs[i as usize][j as usize] = mesh.verticies.len();
 			mesh.get_or_add_vertex(i as f32, j as f32, Some(pixel.0));
-			println!("{:?}", pixel.0);
 		}
 		
 		// create the edges and faces
