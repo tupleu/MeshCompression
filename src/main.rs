@@ -54,7 +54,9 @@ fn test_vertices() -> (Vec<Vertex>, Vec<u16>) {
     (vertices.to_vec(), indices.to_vec())
 }
 fn main() {
-	let _img1 = image::open("./tests/mario.webp").unwrap();
+	// let _img1 = image::open("./tests/mario.webp").unwrap();
+	let _img1 = image::open("./tests/mariobros.png").unwrap();
+
 	//let _img2 = image::open("./../../tests/test2-small.jpeg").unwrap();
 	//let _img3 = image::open("./../../tests/test3.jpg").unwrap();
 	//let _img4 = image::open("./../../tests/test4.jpg").unwrap();

@@ -28,22 +28,22 @@ impl Mesh {
 		
 		let mut vs = vec![vec![0; height+1]; width + 1];
 		// make the verticies
-		let min_d = if width < height { width } else { height } as f32;
+		let max_d = if width > height { width } else { height } as f32;
 		for (i, j, pixel) in img.enumerate_pixels() {
 			vs[i as usize][j as usize] = mesh.vertices.len();
-			mesh.get_or_add_vertex(2.0*(i as f32)/min_d-1.0, 1.0-2.0*(j as f32)/min_d, Some(pixel.0));
+			mesh.get_or_add_vertex(2.0*(i as f32)/max_d-1.0, 1.0-2.0*(j as f32)/max_d, Some(pixel.0));
 		}
 		
 		// create the edges and faces
 		for (i, j, _) in img.enumerate_pixels() {
 			let x = i as f32;
 			let y = j as f32;
-			mesh.add_triangle((2.0*(x as f32)/min_d-1.0, 1.0-2.0*(y as f32)/min_d),
-								(2.0*(x as f32)/min_d-1.0, 1.0-2.0*(y+1 as f32)/min_d),
-								(2.0*(x+1 as f32)/min_d-1.0, 1.0-2.0*(y as f32)/min_d));
-			mesh.add_triangle((2.0*(x as f32)/min_d-1.0, 1.0-2.0*(y+1 as f32)/min_d),
-								(2.0*(x+1 as f32)/min_d-1.0, 1.0-2.0*(y+1 as f32)/min_d),
-								(2.0*(x+1 as f32)/min_d-1.0, 1.0-2.0*(y as f32)/min_d));
+			mesh.add_triangle((2.0*(x as f32)/max_d-1.0, 1.0-2.0*(y as f32)/max_d),
+								(2.0*(x as f32)/max_d-1.0, 1.0-2.0*(y+1 as f32)/max_d),
+								(2.0*(x+1 as f32)/max_d-1.0, 1.0-2.0*(y as f32)/max_d));
+			mesh.add_triangle((2.0*(x as f32)/max_d-1.0, 1.0-2.0*(y+1 as f32)/max_d),
+								(2.0*(x+1 as f32)/max_d-1.0, 1.0-2.0*(y+1 as f32)/max_d),
+								(2.0*(x+1 as f32)/max_d-1.0, 1.0-2.0*(y as f32)/max_d));
 		}
 		// Return the mesh		
 		mesh
