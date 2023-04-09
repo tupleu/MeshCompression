@@ -1,7 +1,7 @@
 
 static EPSILON: f32 = f32::EPSILON * 4.0;
-static MULT: f64 = 0x45d9f3b as f64;
-static MULT1: i64 = 0x119de1f3;
+static MULT: f64 = 0x5d9f3b as f64;
+static MULT1: i64 = 0x9de1f3;
 
 fn float_hash(num: f32) -> i64 {
 	(num as f64 * MULT) as i64 + MULT1
