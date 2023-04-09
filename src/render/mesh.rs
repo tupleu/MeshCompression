@@ -1,18 +1,18 @@
 use std::collections::HashMap;
 
-mod vertex;
+pub mod vertex;
 mod edge;
 mod triangle;
-use self::vertex::Vertex;
+use self::vertex::{Point, Vertex};
 use self::edge::Edge;
-use self::triangle::Triangle;
+//use self::triangle::Triangle;
 
 pub struct Mesh {
 	verticies: Vec<Vertex>,
 	edges: Vec<Edge>,
-	pub triangles: Vec<Triangle>,
-	vertex_map: HashMap<(i32, i32), usize>,
-	edge_map: HashMap<(usize, usize), usize>,
+	triangles: Vec<u16>,
+	vertex_map: HashMap<Point, u16>,
+	edge_map: HashMap<(u16, u16), u16>,
 }
 
 impl Mesh {
@@ -30,17 +30,17 @@ impl Mesh {
 		for i in 0..width {
 			for j in 0..height {
 				vs[i][j] = mesh.verticies.len();
-				mesh.get_or_add_vertex(i as i32, j as i32);
+				mesh.get_or_add_vertex(i as f32, j as f32, Some([1.0, 0.0, 0.0]));
 			}
 		}
 		
 		// create the edges and faces
 		for i in 0..width {			
-			let i = i as i32;
+			let i = i as f32;
 			for j in 0..height {
-				let j = j as i32;
-				mesh.add_triangle((i,j), (i,j+1), (i+1,j));
-				mesh.add_triangle((i,j+1), (i+1,j), (i+1,j+1));
+				let j = j as f32;
+				mesh.add_triangle((i,j), (i,j+1.0), (i+1.0,j));
+				mesh.add_triangle((i,j+1.0), (i+1.0,j), (i+1.0,j+1.0));
 			}
 		}
 		//mesh.add_triangle([vs[0][0], vs[1][0], vs[0][1]]);
@@ -48,42 +48,50 @@ impl Mesh {
 		mesh
 	}
 	
-	pub fn get_or_add_vertex(&mut self, x: i32, y: i32) -> usize {
-		if let Some(index) = self.vertex_map.get(&(x, y)) {
+	pub fn verticies(&self) -> &Vec<Vertex> {
+		return &self.verticies;
+	}
+	
+	pub fn indicies(&self) -> &Vec<u16> {
+		return &self.triangles;
+	}
+	
+	pub fn get_or_add_vertex(&mut self, x: f32, y: f32, color: Option<[f32; 3]>) -> u16 {
+		if let Some(index) = self.vertex_map.get(&Point::new(x, y)) {
 			return *index;
 		}
-		let index = self.verticies.len();
-		self.verticies.push( Vertex::new(x, y) );
-		self.vertex_map.insert((x, y), index);
+		let index = self.verticies.len() as u16;
+		self.verticies.push( Vertex::new(x, y, color.unwrap_or([0.0, 0.0, 0.0])) );
+		self.vertex_map.insert(Point::new(x, y), index);
 		index
 	}
 	
-	pub fn get_vertex(&self, index: usize) -> &Vertex {
-		&self.verticies[index]
+	pub fn get_vertex(&self, index: u16) -> &Vertex {
+		&self.verticies[index as usize]
 	}
 	
-	pub fn get_edge(&self, index: usize) -> &Edge {
-		&self.edges[index]
+	pub fn get_edge(&self, index: u16) -> &Edge {
+		&self.edges[index as usize]
 	}
 	
-	pub fn get_edge_mut(&mut self, index: usize) -> &mut Edge {
-		&mut self.edges[index]
+	pub fn get_edge_mut(&mut self, index: u16) -> &mut Edge {
+		&mut self.edges[index as usize]
 	}
 	
-	pub fn has_vertex(&self, v: (i32, i32)) -> i32 {
-		match self.vertex_map.get(&v) {
+	pub fn has_vertex(&self, v: (f32, f32)) -> i32 {
+		match self.vertex_map.get(&Point::new(v.0, v.1)) {
 			Some(index) => *index as i32,
 			None => -1,
 		}
 	}
 	
-	pub fn has_edge(&self, v_start: (i32, i32), v_end: (i32, i32)) -> i32 {
+	pub fn has_edge(&self, v_start: (f32, f32), v_end: (f32, f32)) -> i32 {
 		let v1_index = self.has_vertex(v_start);
 		let v2_index = self.has_vertex(v_end);
 		if v1_index >= 0 && v2_index >= 0 {
-			return match self.edge_map.get(&(v1_index as usize, v2_index as usize)) {
+			return match self.edge_map.get(&(v1_index as u16, v2_index as u16)) {
 				Some(index) => *index as i32,
-				None => match self.edge_map.get(&(v2_index as usize, v1_index as usize)) {
+				None => match self.edge_map.get(&(v2_index as u16, v1_index as u16)) {
 							Some(index) => *index as i32,
 							None => -1,
 						},
@@ -92,46 +100,47 @@ impl Mesh {
 		-1
 	}
 	
-	fn add_triangle(&mut self, mut v1: (i32, i32), mut v2: (i32, i32), mut v3: (i32, i32) ) {
+	fn add_triangle(&mut self, mut v1: (f32, f32), mut v2: (f32, f32), mut v3: (f32, f32) ) {
 		let ei = [self.has_edge(v1, v2), self.has_edge(v2, v3), self.has_edge(v3, v1)];
 		
 		if ei[0] >= 0 {
-			let e_temp = self.get_edge(ei[0] as usize);
+			let e_temp = self.get_edge(ei[0] as u16);
 			v1 = self.get_vertex(e_temp.get_end()).pos();
 			v2 = self.get_vertex(e_temp.get_start()).pos();
 		} else if ei[1] >= 0 {
-			let e_temp = self.get_edge(ei[1] as usize);
+			let e_temp = self.get_edge(ei[1] as u16);
 			v2 = self.get_vertex(e_temp.get_end()).pos();
 			v3 = self.get_vertex(e_temp.get_start()).pos();
 		} else if ei[2] >= 0 {
-			let e_temp = self.get_edge(ei[2] as usize);
+			let e_temp = self.get_edge(ei[2] as u16);
 			v3 = self.get_vertex(e_temp.get_end()).pos();
 			v1 = self.get_vertex(e_temp.get_start()).pos();
 		}
 		
-		let vertecies = [self.get_or_add_vertex(v1.0, v1.1),
-						 self.get_or_add_vertex(v2.0, v2.1),
-						 self.get_or_add_vertex(v3.0, v3.1)];
+		let vertecies = [self.get_or_add_vertex(v1.0, v1.1, None),
+						 self.get_or_add_vertex(v2.0, v2.1, None),
+						 self.get_or_add_vertex(v3.0, v3.1, None)];
 						 
 		let edges_len = self.edges.len();
 		
 		for index in 0..3 {
 			let index_clamped = (index + 1) % 3;
 			let next_edge_index = index_clamped + edges_len;
-			let v_start = vertecies[index];
-			let v_end = vertecies[index_clamped];
-			let mut edge = Edge::new(v_start, v_end, next_edge_index);
+			let v_start = vertecies[index] as u16;
+			let v_end = vertecies[index_clamped] as u16;
+			let mut edge = Edge::new(v_start, v_end, next_edge_index as u16);
 			edge.set_opposite(ei[index]);
 			if ei[index] >= 0 {
-				self.get_edge_mut(ei[index] as usize).set_opposite((edges_len + index) as i32);
+				self.get_edge_mut(ei[index] as u16).set_opposite((edges_len + index) as i32);
 			}
 			
 			
 			self.edges.push(edge);
-			self.edge_map.insert((v_start, v_end), edges_len + index);
+			self.edge_map.insert((v_start, v_end), (edges_len + index) as u16);
 		}
-		let tri = Triangle::new(edges_len);
-		self.triangles.push(tri);
+		self.triangles.push(vertecies[0]);
+		self.triangles.push(vertecies[1]);
+		self.triangles.push(vertecies[2]);
 	}
 	/*
 	fn add_triangle_to_edge(&mut self, edge_index: usize, vertex: (i32, i32)) {

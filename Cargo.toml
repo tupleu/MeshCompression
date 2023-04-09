@@ -16,3 +16,9 @@ winit = "0.28.3"
 [[bin]]
 name = "mesh_compression"
 path = "src/main.rs"
+
+[profile.dev]
+incremental = true
+
+[build]
+rustc = ["--build-std", "--cache", "dir=/.build"]

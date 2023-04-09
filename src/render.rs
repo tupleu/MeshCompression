@@ -1,4 +1,7 @@
 use std::iter;
+mod mesh;
+pub use mesh::Mesh;
+pub use mesh::vertex::Vertex;
 
 use wgpu::util::DeviceExt;
 use winit::{
@@ -7,15 +10,10 @@ use winit::{
     window::{Window, WindowBuilder},
 };
 
+
+
 #[cfg(target_arch="wasm32")]
 use wasm_bindgen::prelude::*;
-
-#[repr(C)]
-#[derive(Copy, Clone, Debug, bytemuck::Pod, bytemuck::Zeroable)]
-pub struct Vertex {
-    pub(crate) position: [f32; 3],
-    pub(crate) color: [f32; 3],
-}
 
 impl Vertex {
     fn desc<'a>() -> wgpu::VertexBufferLayout<'a> {
