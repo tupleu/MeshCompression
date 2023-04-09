@@ -8,7 +8,7 @@ use self::edge::Edge;
 //use self::triangle::Triangle;
 
 pub struct Mesh {
-	verticies: Vec<Vertex>,
+	vertices: Vec<Vertex>,
 	edges: Vec<Edge>,
 	triangles: Vec<u16>,
 	vertex_map: HashMap<Point, u16>,
@@ -16,7 +16,7 @@ pub struct Mesh {
 }
 
 impl Mesh {
-	pub fn new() -> Mesh { Mesh { verticies: vec![], edges: vec![], triangles: vec![], vertex_map: HashMap::new(), edge_map: HashMap::new() } }
+	pub fn new() -> Mesh { Mesh { vertices: vec![], edges: vec![], triangles: vec![], vertex_map: HashMap::new(), edge_map: HashMap::new() } }
 	
 	pub fn from_image(width: usize, height: usize) -> Mesh {
 		if width < 2 || height < 2 {
@@ -29,7 +29,7 @@ impl Mesh {
 		// make the verticies
 		for i in 0..width {
 			for j in 0..height {
-				vs[i][j] = mesh.verticies.len();
+				vs[i][j] = mesh.vertices.len();
 				mesh.get_or_add_vertex(i as f32, j as f32, Some([1.0, 0.0, 0.0]));
 			}
 		}
@@ -48,11 +48,11 @@ impl Mesh {
 		mesh
 	}
 	
-	pub fn verticies(&self) -> &Vec<Vertex> {
-		return &self.verticies;
+	pub fn vertices(&self) -> &Vec<Vertex> {
+		return &self.vertices;
 	}
 	
-	pub fn indicies(&self) -> &Vec<u16> {
+	pub fn indices(&self) -> &Vec<u16> {
 		return &self.triangles;
 	}
 	
@@ -60,14 +60,14 @@ impl Mesh {
 		if let Some(index) = self.vertex_map.get(&Point::new(x, y)) {
 			return *index;
 		}
-		let index = self.verticies.len() as u16;
-		self.verticies.push( Vertex::new(x, y, color.unwrap_or([0.0, 0.0, 0.0])) );
+		let index = self.vertices.len() as u16;
+		self.vertices.push( Vertex::new(x, y, color.unwrap_or([0.0, 0.0, 0.0])) );
 		self.vertex_map.insert(Point::new(x, y), index);
 		index
 	}
 	
 	pub fn get_vertex(&self, index: u16) -> &Vertex {
-		&self.verticies[index as usize]
+		&self.vertices[index as usize]
 	}
 	
 	pub fn get_edge(&self, index: u16) -> &Edge {
