@@ -51,7 +51,7 @@ struct State {
 }
 
 impl State {
-    async fn new(window: Window, vertices: &Vec<Vertex>, indices: &Vec<u16>) -> Self {
+    async fn new(window: Window, vertices: &Vec<Vertex>, indices: &Vec<u32>, wire: bool) -> Self {
         let size = window.inner_size();
 
         // The instance is a handle to our GPU
@@ -80,7 +80,7 @@ impl State {
             .request_device(
                 &wgpu::DeviceDescriptor {
                     label: None,
-                    features: wgpu::Features::POLYGON_MODE_LINE,
+                    features: if wire {wgpu::Features::POLYGON_MODE_LINE} else { wgpu::Features::empty()},
                     limits: if cfg!(target_arch = "wasm32") {
                         wgpu::Limits::downlevel_webgl2_defaults()
                     } else {
@@ -217,6 +217,7 @@ impl State {
             usage: wgpu::BufferUsages::INDEX,
         });
         let num_indices = indices.len() as u32;
+        println!("num_indices: {:?}/4294967296", num_indices);
 
         Self {
             surface,
@@ -286,7 +287,7 @@ impl State {
 
             render_pass.set_pipeline(&self.render_pipeline);
             render_pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
-            render_pass.set_index_buffer(self.index_buffer.slice(..), wgpu::IndexFormat::Uint16);
+            render_pass.set_index_buffer(self.index_buffer.slice(..), wgpu::IndexFormat::Uint32);
             render_pass.draw_indexed(0..self.num_indices, 0, 0..1);
             if let Some(ref wire_pipeline) = self.wire_pipeline {
                 render_pass.set_pipeline(wire_pipeline);
@@ -302,7 +303,7 @@ impl State {
 }
 
 #[cfg_attr(target_arch="wasm32", wasm_bindgen(start))]
-pub async fn run(vertices: &Vec<Vertex>, indices: &Vec<u16>) {
+pub async fn run(vertices: &Vec<Vertex>, indices: &Vec<u32>, wire: bool) {
     // cfg_if::cfg_if! {
     //     if #[cfg(target_arch = "wasm32")] {
     //         std::panic::set_hook(Box::new(console_error_panic_hook::hook));
@@ -335,7 +336,7 @@ pub async fn run(vertices: &Vec<Vertex>, indices: &Vec<u16>) {
     }
 
     // State::new uses async code, so we're going to wait for it to finish
-    let mut state = State::new(window, vertices, indices).await;
+    let mut state = State::new(window, vertices, indices, wire).await;
 
     event_loop.run(move |event, _, control_flow| {
         match event {

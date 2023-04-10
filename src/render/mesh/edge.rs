@@ -2,22 +2,22 @@ use super::vertex::Vertex;
 
 #[derive(Hash, Eq, PartialEq, Debug, Clone)]
 pub struct Edge {
-	start: u16,
-	end: u16,
-	next: u16, 
-	opposite: Option<u16>,
+	start: u32,
+	end: u32,
+	next: u32, 
+	opposite: Option<u32>,
 }
 
 impl Edge {
 	
-	pub fn new(start: u16, end: u16, next: u16) -> Edge { Edge { start: start, end: end, next: next, opposite: None } }
+	pub fn new(start: u32, end: u32, next: u32) -> Edge { Edge { start: start, end: end, next: next, opposite: None } }
 	
-	pub fn get_start(&self) -> u16 { self.start }
-	pub fn get_end(&self) -> u16 { self.end }
+	pub fn get_start(&self) -> u32 { self.start }
+	pub fn get_end(&self) -> u32 { self.end }
 	
 	pub fn set_opposite(&mut self, edge: i32) {
 		if edge >= 0 {
-			self.opposite = Some(edge as u16);
+			self.opposite = Some(edge as u32);
 		}
 	}
 	
