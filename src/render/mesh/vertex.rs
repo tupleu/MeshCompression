@@ -17,13 +17,18 @@ fn float_tuple_eq(a: (f32, f32), b: (f32, f32)) -> bool {
 
 #[derive(Copy, Clone, Debug, Default)]
 pub struct Point {
-	position: [f32; 2]
+	pub x: f32,
+	pub y: f32,
 }
+
+#[derive(Hash, Eq, PartialEq, Debug, Clone, Copy)]
+pub struct VertexIndex { pub index: u32 }
+impl VertexIndex { pub fn new(index: u32) -> VertexIndex { VertexIndex { index: index } } }
 
 impl PartialEq for Point {
     fn eq(&self, other: &Point) -> bool {
-        if 		(self.position[0] - other.position[0]).abs() < EPSILON && 
-				(self.position[1] - other.position[1]).abs() < EPSILON		 {
+        if 		(self.x - other.x).abs() < EPSILON && 
+				(self.y - other.y).abs() < EPSILON		 {
 			return true;
 		}
 		false
@@ -38,13 +43,13 @@ impl std::hash::Hash for Point {
         H: std::hash::Hasher,
     {
 		//let hash = (ival_x * MULT1  * MULT1) + (ival_y * MULT1) + zIntValue;
-        state.write_i64(float_tuple_hash((self.position[0], self.position[1])));
+        state.write_i64(float_tuple_hash((self.x, self.y)));
         state.finish();
     }
 }
 
 impl Point {
-	pub fn new(x: f32, y: f32) -> Point { Point { position: [x, y] } }
+	pub fn new(x: f32, y: f32) -> Point { Point { x: x, y: y } }
 }
 
 #[repr(C)]
@@ -90,5 +95,6 @@ impl Vertex {
 	pub fn x(&self) -> f32 { self.position[0] }
 	pub fn y(&self) -> f32 { self.position[1] }
 	
-	pub fn pos(&self) -> (f32, f32) { (self.x(), self.y()) }
+	pub fn pos(&self) -> Point { Point::new(self.x(), self.y()) }
+	pub fn color(&self) -> &[f32; 3] { &self.color }
 }

@@ -1,24 +1,32 @@
-use super::vertex::Vertex;
+use super::vertex::VertexIndex;
+
+#[derive(Hash, Eq, PartialEq, Debug, Clone, Copy)]
+pub struct EdgeIndex { pub index: u32 }
+impl EdgeIndex { pub fn new(index: u32) -> EdgeIndex { EdgeIndex { index: index } } }
+
 
 #[derive(Hash, Eq, PartialEq, Debug, Clone)]
 pub struct Edge {
-	start: u32,
-	end: u32,
-	next: u32, 
-	opposite: Option<u32>,
+	start: VertexIndex,
+	end: VertexIndex,
+	next: EdgeIndex, 
+	opposite: Option<EdgeIndex>,
 }
+
 
 impl Edge {
 	
-	pub fn new(start: u32, end: u32, next: u32) -> Edge { Edge { start: start, end: end, next: next, opposite: None } }
+	pub fn new(start: VertexIndex, end: VertexIndex, next: EdgeIndex) -> Edge { Edge { start: start, end: end, next: next, opposite: None } }
 	
-	pub fn get_start(&self) -> u32 { self.start }
-	pub fn get_end(&self) -> u32 { self.end }
+	pub fn start(&self) -> VertexIndex { self.start }
+	pub fn end(&self) -> VertexIndex { self.end }
 	
-	pub fn set_opposite(&mut self, edge: i32) {
-		if edge >= 0 {
-			self.opposite = Some(edge as u32);
-		}
+	pub(crate) fn set_opposite(&mut self, edge: Option<EdgeIndex>) {
+		self.opposite = edge;
+	}
+	
+	pub fn opposite(&self) -> Option<EdgeIndex> {
+		self.opposite
 	}
 	
 	//pub fn start(&self) -> &Vertex { self.start }

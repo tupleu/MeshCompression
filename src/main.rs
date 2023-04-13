@@ -1,5 +1,6 @@
 #![allow(unused_imports)]
 #![allow(dead_code)]
+#![allow(unused_variables)]
 
 use std::env;
 
@@ -66,7 +67,7 @@ fn main() {
     } else {
         false
     };
-	let _img1 = image::open(img_path).unwrap();
+	let img = image::open(img_path).unwrap();
 	// let _img1 = image::open("./tests/mario.webp").unwrap();
 	// let _img1 = image::open("./tests/mariobros.png").unwrap();
 
@@ -74,6 +75,8 @@ fn main() {
 	//let _img3 = image::open("./../../tests/test3.jpg").unwrap();
 	//let _img4 = image::open("./../../tests/test4.jpg").unwrap();
 	
-	let img_mesh = Mesh::from_image(_img1);
-    pollster::block_on(run(img_mesh.vertices(), img_mesh.indices(), wire));
+	
+	
+	let img_mesh = Mesh::from_image(img);
+    pollster::block_on(run(img_mesh.vertices(), &img_mesh.indices(), wire));
 }
