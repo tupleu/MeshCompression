@@ -165,6 +165,9 @@ impl Mesh {
 	
 	pub fn remove_triangle(&mut self, triangle: Triangle) {}
 	
+	pub fn remove_edge(&mut self, edge: EdgeIndex) {}
+
+	
 	pub fn set_vertex_color(&mut self, vertex: VertexIndex, color: [f32; 3]) {
 		if vertex.index as usize >= self.vertices.len() { return; }
 		self.get_vertex_mut(vertex).set_color(color);
