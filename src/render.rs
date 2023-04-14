@@ -1,6 +1,6 @@
 use std::iter;
 mod mesh;
-pub use mesh::Mesh;
+pub use mesh::{Mesh, TriangleIndex, Triangle};
 pub use mesh::vertex::Vertex;
 
 use wgpu::util::DeviceExt;

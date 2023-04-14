@@ -5,9 +5,12 @@
 use std::env;
 
 mod render;
-use render::{Vertex, Mesh, run};
+use render::{Vertex, Mesh, TriangleIndex, run};
 
 use image::GenericImageView;
+
+use rand;
+
 
 fn test_vertices() -> (Vec<Vertex>, Vec<u16>) {
     let vertices: &[Vertex] = &[
@@ -77,6 +80,31 @@ fn main() {
 	
 	
 	
-	let img_mesh = Mesh::from_image(img);
-    pollster::block_on(run(img_mesh.vertices(), &img_mesh.indices(), wire));
+	
+	let mut img_mesh = Mesh::from_image(img);
+    
+	
+	let mut remove_idx = vec![];
+	let mut subdivide_idx = vec![];
+	for tri in img_mesh.triangles() {
+		let r: f32 = rand::random();
+		if r > 0.9 {
+			subdivide_idx.push(tri.index());
+		}
+	}
+	for idx in subdivide_idx {
+		img_mesh.subdivide_triangle(idx);
+	}
+	for tri in img_mesh.triangles() {
+		let r: f32 = rand::random();
+		if r > 0.9 {
+			remove_idx.push(tri.index());
+		}
+	}
+	for idx in remove_idx {
+		img_mesh.remove_triangle(idx);
+	}
+	
+	
+	pollster::block_on(run(img_mesh.vertices(), &img_mesh.indices(), wire));
 }

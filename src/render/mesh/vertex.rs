@@ -50,6 +50,11 @@ impl std::hash::Hash for Point {
 
 impl Point {
 	pub fn new(x: f32, y: f32) -> Point { Point { x: x, y: y } }
+	pub fn midpoint(p1: Point, p2: Point) -> Point {
+		let mid_x = (p1.x + p2.x) / 2.0;
+		let mid_y = (p1.y + p2.y) / 2.0;
+		Point { x: mid_x, y: mid_y }
+	}
 }
 
 #[repr(C)]
