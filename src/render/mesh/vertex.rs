@@ -97,4 +97,6 @@ impl Vertex {
 	
 	pub fn pos(&self) -> Point { Point::new(self.x(), self.y()) }
 	pub fn color(&self) -> &[f32; 3] { &self.color }
+	
+	pub(crate) fn set_color(&mut self, color: [f32; 3]) { self.color = color }
 }

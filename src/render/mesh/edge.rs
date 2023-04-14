@@ -29,6 +29,10 @@ impl Edge {
 		self.opposite
 	}
 	
+	pub fn next(&self) -> EdgeIndex {
+		self.next
+	}
+	
 	//pub fn start(&self) -> &Vertex { self.start }
 	//pub fn end(&self) -> &Vertex { self.end }
 	//pub fn triangle(&self) -> &Triangle { self.triangle }

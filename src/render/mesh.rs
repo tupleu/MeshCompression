@@ -9,7 +9,6 @@ use self::edge::{Edge, EdgeIndex};
 //use self::triangle::Triangle;
 
 
-
 pub struct Triangle {
 	v_start: usize,
 	edge: EdgeIndex,
@@ -163,18 +162,38 @@ impl Mesh {
 		self.triangle_verticies.push(vertices[2]);
 		
 	}
-
+	
 	pub fn remove_triangle(&mut self, triangle: Triangle) {}
 	
-	pub fn set_vertex_color(&mut self, vertex: VertexIndex, color: [f32; 3]) {}
+	pub fn set_vertex_color(&mut self, vertex: VertexIndex, color: [f32; 3]) {
+		if vertex.index as usize >= self.vertices.len() { return; }
+		self.get_vertex_mut(vertex).set_color(color);
+	}
 	
-	pub fn next(&self, edge: EdgeIndex) -> EdgeIndex { EdgeIndex::new(0) }
+	pub fn next(&self, edge: EdgeIndex) -> EdgeIndex { 
+		if edge.index as usize >= self.edges.len() { return EdgeIndex::new(0); }
+		self.get_edge(edge).next()
+	}
 	
-	pub fn opposite(&self, edge: EdgeIndex) -> Option<EdgeIndex> { None }
+	pub fn opposite(&self, edge: EdgeIndex) -> Option<EdgeIndex> { 
+		if edge.index as usize >= self.edges.len() { return None; }
+		self.get_edge(edge).opposite()
+	}
 	
-	pub fn start(&self, edge: EdgeIndex) -> Option<&Vertex> { None }
+	pub fn start(&self, edge: EdgeIndex) -> Option<&Vertex> { 
+		if edge.index as usize >= self.edges.len() { return None; }
+		Some(&self.get_vertex(self.get_edge(edge).start()))
+	}
 	
-	pub fn length(&self, edge: EdgeIndex) -> f32 { 0.0 }
+	pub fn length(&self, index: EdgeIndex) -> f32 {
+		if index.index as usize >= self.edges.len() { return 0.0; }
+		
+		let edge = self.get_edge(index);
+		let start = self.get_vertex(edge.start()).pos();
+		let end = self.get_vertex(edge.end()).pos();
+		
+		(( f32::powf(end.x - start.x, 2.0) + f32::powf(end.y - start.y, 2.0) )).sqrt()
+	}
 
 	/*
 	fn add_triangle_to_edge(&mut self, edge_index: usize, vertex: (i32, i32)) {
