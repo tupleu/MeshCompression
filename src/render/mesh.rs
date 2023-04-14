@@ -190,7 +190,7 @@ impl Mesh {
 
 
 	
-	fn remove_triangle(&mut self, index: TriangleIndex) -> bool {
+	pub fn remove_triangle(&mut self, index: TriangleIndex) -> bool {
 		// STOP if this triangle has already been removed
 		if index.index.is_none() { return false; }
 		if self.triangles[index.index.unwrap()].index.index.is_none() { return false; }		
