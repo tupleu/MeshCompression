@@ -36,15 +36,23 @@ fn main() {
 	
 	
 	let mut img_mesh = Mesh::from_image(img);
+    println!("{:?}",img_mesh.tri_count());
 	
-	for i in 0..100 {
-		let edge = img_mesh.get_random_edge();
-		let color_diff = Mesh::color_diff(&edge);
-		if color_diff == [0.0,0.0,0.0] {
-			img_mesh.collapse_edge(edge);
-		}
+	for _ in 0..1 {
+        for _ in 0..100 {
+            let edge = img_mesh.get_random_edge();
+            let color_diff = Mesh::color_diff(&edge);
+            // if color_diff == [0.0,0.0,0.0] {
+                match img_mesh.collapse_edge(edge) {
+                    Ok(i) => break,
+                    Err(e) => println!("{:?}", e),
+                    // Err(e) => (),
+                }
+            // }
+        }
 		
 	}
 	
+    println!("{:?}",img_mesh.tri_count());
 	pollster::block_on(run(&img_mesh.extract_vertices(), &img_mesh.extract_indices(), wire));
 }

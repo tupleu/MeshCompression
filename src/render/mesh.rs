@@ -10,6 +10,7 @@ pub struct Vertex {
     pub(crate) position: [f32; 3],
 	pub(crate) color: [f32; 3],
 	index: u32,
+    anchor: u32
 }
 
 #[derive(Debug)]
@@ -26,11 +27,12 @@ pub struct Triangle {
 }
 
 impl Vertex {
-    fn new(position: [f32; 3], color: [f32; 3], index: u32) -> Self {
+    fn new(position: [f32; 3], color: [f32; 3], index: u32, anchor: u32) -> Self {
         Vertex {
             position,
             color,
 			index,
+            anchor
         }
     }
 }
@@ -75,8 +77,8 @@ impl Mesh {
         }
     }
 
-	fn new_vertex(position: [f32; 3], color: [f32; 3], index: u32) -> Rc<RefCell<Vertex>> {
-		Rc::new(RefCell::new(Vertex::new(position, color, index)))
+	fn new_vertex(position: [f32; 3], color: [f32; 3], index: u32, anchor: u32) -> Rc<RefCell<Vertex>> {
+		Rc::new(RefCell::new(Vertex::new(position, color, index, anchor)))
 	}
 	
 	fn new_triangle(edge: Option<Rc<RefCell<Edge>>>) -> Rc<RefCell<Triangle>> {
@@ -96,7 +98,8 @@ impl Mesh {
 		for (x, y, pixel) in image.enumerate_pixels() {
 			let vx = (x as f32 / max_dimension as f32) - 1.0;
 			let vy = (y as f32 / max_dimension as f32) - 1.0;
-			mesh.vertices.push(Mesh::new_vertex([vx, vy*-1.0, 0.0], pixel.0, mesh.vertices.len() as u32));
+            let corner = ((x == 0 || x == (width-1) as u32) && (y == 0 || y == (height-1) as u32)) as u32;
+			mesh.vertices.push(Mesh::new_vertex([vx, vy*-1.0, 0.0], pixel.0, mesh.vertices.len() as u32, corner));
 		}
 		// Create triangles
 		for y in 0..height-1 {
@@ -112,13 +115,17 @@ impl Mesh {
 		mesh
 	}
 
+    pub fn tri_count(&self) -> usize {
+        self.triangles.len()
+    }
+
 	pub fn extract_vertices(&self) -> Vec<Vertex> {
 		let mut vertices: Vec<Vertex> = Vec::new();
 		for vertex in &self.vertices {
 			let v: Vertex = *vertex.borrow();
-			vertices.push(Vertex::new(v.position, v.color, 0));
+			vertices.push(Vertex::new(v.position, v.color, 0, v.anchor));
 		}
-		println!("Extracted verticies!");
+		// println!("Extracted verticies!");
 		vertices
 	}
 	
@@ -135,7 +142,7 @@ impl Mesh {
 			
 			indices.push(Mesh::vertex(&current_edge).borrow().index);
 		}
-		println!("Extracted indicies!");
+		// println!("Extracted indicies!");
 		indices
 	}
 	
@@ -189,19 +196,32 @@ impl Mesh {
 		edges
 	}// Loop <function> until <function>
 	
-	pub fn collapse_edge(&mut self, edge: Rc<RefCell<Edge>>) {
+	pub fn collapse_edge(&mut self, edge: Rc<RefCell<Edge>>) -> Result<(), String> {
 		// Check that the edge is not a boundary edge.
-		if Mesh::opposite(&edge).is_none() { return; }
+		if Mesh::opposite(&edge).is_none() {
+            return Err("invalid collapse".to_string());
+        }
 		
 		let opposite_edge = Mesh::opposite(&edge).unwrap()	;
 		
 		let v1 = Mesh::vertex(&edge);
 		let v2 = Mesh::vertex(&opposite_edge);
 
+        if v1.borrow().anchor == 1 && v2.borrow().anchor == 1 {
+            return Err("invalid collapse".to_string());
+        }
+
 		// Calculate the new position of the vertex.
-		let position = midpoint(v1.borrow().position, v2.borrow().position);
+        // println!("{:?}, {:?}", v1.borrow().anchor, v2.borrow().anchor);
+		let position = match (v1.borrow().anchor, v2.borrow().anchor) {
+		    (0,0) => midpoint(v1.borrow().position, v2.borrow().position),
+		    (1,0) => v1.borrow().position,
+		    (0,1) => v2.borrow().position,
+            _ => return Err("invalid collapse".to_string()),
+		};
 		let color = average_color(&v1.borrow().color, &v2.borrow().color);
-		let v_new = Mesh::new_vertex(position, color, self.vertices.len() as u32);
+        
+		let v_new = Mesh::new_vertex(position, color, self.vertices.len() as u32, v1.borrow().anchor | v2.borrow().anchor);
 		
 		// Update all edges that use those verticies with v_new
 		for edge_ in self.get_neighboorhood(&edge) {
@@ -211,6 +231,7 @@ impl Mesh {
 			edge_.borrow_mut().vertex = Some(v_new.clone());
 		}
 		self.vertices.push(v_new);
+        Ok(())
 	}
 	
 	pub fn get_random_edge(&self) -> Rc<RefCell<Edge>> {
@@ -269,6 +290,4 @@ impl Mesh {
 		self.edges.push(e2);
 		self.edges.push(e3);
     }
-	
-	
 }
