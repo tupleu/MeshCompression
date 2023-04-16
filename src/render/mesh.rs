@@ -84,6 +84,15 @@ impl Mesh {
 	fn new_triangle(edge: Option<Rc<RefCell<Edge>>>) -> Rc<RefCell<Triangle>> {
 		Rc::new(RefCell::new(Triangle { edge }))
 	}
+	
+	//pub fn outline() -> Mesh {
+		// same color, then make them closer together
+		// specifics for edge collapse
+		
+		// float 16 to float 32
+		
+		
+	//}
 
 	pub fn from_image(dynamic_image: DynamicImage) -> Mesh {
 		let width = dynamic_image.width() as usize;

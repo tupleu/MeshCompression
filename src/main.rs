@@ -36,7 +36,7 @@ fn main() {
 	
 	
 	let mut img_mesh = Mesh::from_image(img);
-    println!("{:?}",img_mesh.tri_count());
+    println!("{:?}", img_mesh.tri_count());
 	
 	for _ in 0..1 {
         for _ in 0..100 {
@@ -54,5 +54,17 @@ fn main() {
 	}
 	
     println!("{:?}",img_mesh.tri_count());
+	
+	// specific rules for collapsing - Brian
+	// * color
+	// * crease rules
+	// * edge preservation
+	// store collapses - Dru
+	// selective refinement (paper) - Dru
+	// * lookup nearest edge collapse
+	// * default to center
+	// screenshots/gif generation of refinement - Brian
+	// 
+	
 	pollster::block_on(run(&img_mesh.extract_vertices(), &img_mesh.extract_indices(), wire));
 }
