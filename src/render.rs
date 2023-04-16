@@ -1,7 +1,6 @@
 use std::iter;
 mod mesh;
-pub use mesh::{Mesh, TriangleIndex, Triangle};
-pub use mesh::vertex::Vertex;
+pub use mesh::{Vertex, Edge, Triangle, Mesh};
 
 use wgpu::util::DeviceExt;
 use winit::{
@@ -9,6 +8,7 @@ use winit::{
     event_loop::{ControlFlow, EventLoop},
     window::{Window, WindowBuilder},
 };
+
 
 
 

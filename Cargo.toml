@@ -14,6 +14,7 @@ wgpu = "0.15.1"
 winit = "0.28.3"
 image = "0.24.6"
 rand = "0.8.5"
+half_edge_mesh = "1.1.8"
 
 [[bin]]
 name = "mesh_compression"

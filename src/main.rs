@@ -5,60 +5,14 @@
 use std::env;
 
 mod render;
-use render::{Vertex, Mesh, TriangleIndex, run};
+use render::{Mesh, Vertex, run};
 
 use image::GenericImageView;
 
 use rand;
 
 
-fn test_vertices() -> (Vec<Vertex>, Vec<u16>) {
-    let vertices: &[Vertex] = &[
-        Vertex {
-            position: [-0.5, -0.5, 0.0],
-            // color: [0.0, 0.0, 0.0],
-            color: [0.0, 1.0, 0.0],
-        },
-        Vertex {
-            position: [0.0, -0.5, 0.0],
-            color: [1.0, 0.0, 0.0],
-        },
-        Vertex {
-            position: [0.5, -0.5, 0.0],
-            // color: [0.0, 0.0, 0.0],
-            color: [0.0, 0.0, 1.0],
-        },
-        Vertex {
-            position: [0.25, 0.0, 0.0],
-            color: [0.0, 1.0, 0.0],
-        },
-        Vertex {
-            position: [0.0, 0.5, 0.0],
-            // color: [0.0, 0.0, 0.0],
-            color: [1.0, 0.0, 0.0],
-        },
-        Vertex {
-            position: [-0.25, 0.0, 0.0],
-            color: [0.0, 0.0, 1.0],
-        },
-        Vertex {
-            position: [0.0, -0.225, 0.0],
-            // color: [1.0, 1.0, 1.0],
-            color: [0.0, 0.0, 0.0],
-        },
-    ];
 
-    let indices: &[u16] = &[
-        0, 1, 5,
-        1, 2, 3,
-        3, 4, 5,
-        1, 3, 6,
-        3, 5, 6,
-        5, 1, 6,
-    ];
-    
-    (vertices.to_vec(), indices.to_vec())
-}
 fn main() {
     let args: Vec<String> = env::args().collect();
     if args.len() < 2 {
@@ -82,29 +36,10 @@ fn main() {
 	
 	
 	let mut img_mesh = Mesh::from_image(img);
-    
 	
-	let mut remove_idx = vec![];
-	let mut subdivide_idx = vec![];
-	for tri in img_mesh.triangles() {
-		let r: f32 = rand::random();
-		if r > 0.9 {
-			subdivide_idx.push(tri.index());
-		}
-	}
-	for idx in subdivide_idx {
-		img_mesh.subdivide_triangle(idx);
-	}
-	for tri in img_mesh.triangles() {
-		let r: f32 = rand::random();
-		if r > 0.9 {
-			remove_idx.push(tri.index());
-		}
-	}
-	for idx in remove_idx {
-		img_mesh.remove_triangle(idx);
+	for i in 0..1 {
+		img_mesh.collapse_edge(img_mesh.get_random_edge());
 	}
 	
-	
-	pollster::block_on(run(img_mesh.vertices(), &img_mesh.indices(), wire));
+	pollster::block_on(run(&img_mesh.extract_vertices(), &img_mesh.extract_indices(), wire));
 }
