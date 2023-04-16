@@ -217,7 +217,6 @@ impl State {
             usage: wgpu::BufferUsages::INDEX,
         });
         let num_indices = indices.len() as u32;
-        println!("num_indices: {:?}/4294967296", num_indices);
 
         Self {
             surface,
