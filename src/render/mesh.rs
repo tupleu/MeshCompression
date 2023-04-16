@@ -155,6 +155,12 @@ impl Mesh {
 		triangle.borrow().edge.clone().unwrap()
 	}
 	
+	pub fn color_diff(edge: &Rc<RefCell<Edge>>) -> [f32; 3] {
+		let c1 = Mesh::vertex(edge).borrow().color;
+		let c2 = Mesh::vertex(&Mesh::next(edge)).borrow().color;
+		[(c2[0] - c1[0]).abs(), (c2[1] - c1[1]).abs(), (c2[2] - c1[2].abs())]
+	}
+	
 	pub fn get_neighboorhood(&self, start_edge: &Rc<RefCell<Edge>>) -> Vec<Rc<RefCell<Edge>>> {
 		let mut edge = start_edge.clone();
 		let mut prev_edge;

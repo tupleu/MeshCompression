@@ -37,8 +37,13 @@ fn main() {
 	
 	let mut img_mesh = Mesh::from_image(img);
 	
-	for i in 0..1 {
-		img_mesh.collapse_edge(img_mesh.get_random_edge());
+	for i in 0..100 {
+		let edge = img_mesh.get_random_edge();
+		let color_diff = Mesh::color_diff(&edge);
+		if color_diff == [0.0,0.0,0.0] {
+			img_mesh.collapse_edge(edge);
+		}
+		
 	}
 	
 	pollster::block_on(run(&img_mesh.extract_vertices(), &img_mesh.extract_indices(), wire));
