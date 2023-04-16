@@ -32,7 +32,7 @@ impl Vertex {
             position,
             color,
 			index,
-            anchor
+            anchor,
         }
     }
 }
@@ -171,6 +171,10 @@ impl Mesh {
 		triangle.borrow().edge.clone().unwrap()
 	}
 	
+	pub fn triangle(edge: &Rc<RefCell<Edge>>) -> Rc<RefCell<Triangle>> {
+		edge.borrow().triangle.clone().unwrap()
+	}
+	
 	pub fn color_diff(edge: &Rc<RefCell<Edge>>) -> [f32; 3] {
 		let c1 = Mesh::vertex(edge).borrow().color;
 		let c2 = Mesh::vertex(&Mesh::next(edge)).borrow().color;
@@ -228,6 +232,9 @@ impl Mesh {
 		    (0,1) => v2.borrow().position,
             _ => return Err("invalid collapse".to_string()),
 		};
+		
+		
+		
 		let color = average_color(&v1.borrow().color, &v2.borrow().color);
         
 		let v_new = Mesh::new_vertex(position, color, self.vertices.len() as u32, v1.borrow().anchor | v2.borrow().anchor);
@@ -240,7 +247,27 @@ impl Mesh {
 			edge_.borrow_mut().vertex = Some(v_new.clone());
 		}
 		self.vertices.push(v_new);
+		
+		self.remove_triange(Mesh::triangle(&edge)); 
+		
         Ok(())
+	}
+	
+	pub fn remove_triange(&mut self, triangle: Rc<RefCell<Triangle>>) -> bool {
+		let edge_to_remove = Mesh::edge(&triangle);
+		
+		let mut index_to_remove: Option<usize> = None;
+		for (i, triangle) in self.triangles.iter().enumerate() {
+			if Rc::ptr_eq(&Mesh::edge(triangle), &edge_to_remove) {
+				index_to_remove = Some(i);
+				break;
+			}
+		}
+		if index_to_remove.is_none() { println!("super bad"); return false; }
+		
+		self.triangles.remove(index_to_remove.unwrap());
+		println!("removed tri!");
+		true
 	}
 	
 	pub fn get_random_edge(&self) -> Rc<RefCell<Edge>> {
@@ -290,6 +317,10 @@ impl Mesh {
 		}
 		
         self.triangles.push(Mesh::new_triangle(Some(e1.clone())));
+		
+		e1.borrow_mut().triangle = self.triangles.last().cloned();
+		e2.borrow_mut().triangle = self.triangles.last().cloned();
+		e3.borrow_mut().triangle = self.triangles.last().cloned();
 		
 		self.vertex_edge_map.insert((indices[0], indices[1]), Rc::clone(&e1));
 		self.vertex_edge_map.insert((indices[1], indices[2]), Rc::clone(&e2));
