@@ -107,7 +107,7 @@ impl Mesh {
 		for (x, y, pixel) in image.enumerate_pixels() {
 			let vx = (x as f32 / max_dimension as f32) - 1.0;
 			let vy = (y as f32 / max_dimension as f32) - 1.0;
-            let corner = ((x == 0 || x == (width-1) as u32) && (y == 0 || y == (height-1) as u32)) as u32;
+            let corner = ((x == 0 || x == (width-1) as u32) || (y == 0 || y == (height-1) as u32)) as u32;
 			mesh.vertices.push(Mesh::new_vertex([vx, vy*-1.0, 0.0], pixel.0, mesh.vertices.len() as u32, corner));
 		}
 		// Create triangles
@@ -248,12 +248,13 @@ impl Mesh {
 		}
 		self.vertices.push(v_new);
 		
-		self.remove_triange(Mesh::triangle(&edge)); 
+		self.remove_triangle(Mesh::triangle(&edge)); 
+		self.remove_triangle(Mesh::triangle(&opposite_edge)); 
 		
         Ok(())
 	}
 	
-	pub fn remove_triange(&mut self, triangle: Rc<RefCell<Triangle>>) -> bool {
+	pub fn remove_triangle(&mut self, triangle: Rc<RefCell<Triangle>>) -> bool {
 		let edge_to_remove = Mesh::edge(&triangle);
 		
 		let mut index_to_remove: Option<usize> = None;

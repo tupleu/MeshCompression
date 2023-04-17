@@ -35,25 +35,8 @@ fn main() {
 	
 	
 	
-	let mut img_mesh = Mesh::from_image(img);
-    println!("{:?}", img_mesh.tri_count());
-	
-	for _ in 0..1 {
-        for _ in 0..100 {
-            let edge = img_mesh.get_random_edge();
-            let color_diff = Mesh::color_diff(&edge);
-            // if color_diff == [0.0,0.0,0.0] {
-                match img_mesh.collapse_edge(edge) {
-                    Ok(i) => break,
-                    Err(e) => println!("{:?}", e),
-                    // Err(e) => (),
-                }
-            // }
-        }
-		
-	}
-	
-    println!("{:?}",img_mesh.tri_count());
+	let img_mesh = Mesh::from_image(img);
+    println!("Triangle Count: {}", img_mesh.tri_count());
 	
 	// specific rules for collapsing - Brian
 	// * color
@@ -66,5 +49,5 @@ fn main() {
 	// screenshots/gif generation of refinement - Brian
 	// 
 	
-	pollster::block_on(run(&img_mesh.extract_vertices(), &img_mesh.extract_indices(), wire));
+	pollster::block_on(run(img_mesh, wire));
 }

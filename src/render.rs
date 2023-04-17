@@ -10,8 +10,6 @@ use winit::{
 };
 
 
-
-
 #[cfg(target_arch="wasm32")]
 use wasm_bindgen::prelude::*;
 
@@ -36,7 +34,88 @@ impl Vertex {
     }
 }
 
+#[derive(PartialEq)]
+enum KeyState {
+    Pressed,
+    Held,
+    Released,
+}
+
+struct Controller {
+    key_x_state: KeyState,
+    key_w_state: KeyState,
+}
+
+impl Controller {
+    fn new() -> Self {
+        Self {
+            key_x_state: KeyState::Released,
+            key_w_state: KeyState::Released,
+        }
+    }
+
+    fn process_events(&mut self, event: &WindowEvent) -> bool {
+        match event {
+            WindowEvent::KeyboardInput {
+                input: KeyboardInput {
+                    state,
+                    virtual_keycode: Some(keycode),
+                    ..
+                },
+                ..
+            } => {
+                let is_pressed = *state == ElementState::Pressed;
+                match keycode {
+                    VirtualKeyCode::X => {
+                        if is_pressed && self.key_x_state == KeyState::Released {
+                            self.key_x_state = KeyState::Pressed
+                        }
+                        if !is_pressed && self.key_x_state == KeyState::Held {
+                            self.key_x_state = KeyState::Released
+                        }
+                        true
+                    },
+                    VirtualKeyCode::W => {
+                        if is_pressed && self.key_w_state == KeyState::Released {
+                            self.key_w_state = KeyState::Pressed
+                        }
+                        if !is_pressed && self.key_w_state == KeyState::Held {
+                            self.key_w_state = KeyState::Released
+                        }
+                        true
+                    }
+                    _ => false,
+                }
+            }
+            _ => false,
+        }
+    }
+
+    fn update_mesh(&mut self, mesh: &mut Mesh) -> bool{
+        let mut update = false;
+        if self.key_x_state == KeyState::Pressed {
+            println!("Edge Collapse");
+            let initial_count = mesh.tri_count();
+            self.key_x_state = KeyState::Held;
+            let edge = mesh.get_random_edge();
+            let color_diff = Mesh::color_diff(&edge);
+            // if color_diff == [0.0,0.0,0.0] {
+                match mesh.collapse_edge(edge) {
+                    Ok(i) => update = true,
+                    Err(e) => println!("{:?}", e),
+                    // Err(e) => (),
+                }
+            // }
+            println!("Triangle Count: {} -> {}\n", initial_count, mesh.tri_count());
+        }
+        update
+    }
+}
+
 struct State {
+    mesh: Mesh,
+    controller: Controller,
+    wire: bool,
     surface: wgpu::Surface,
     device: wgpu::Device,
     queue: wgpu::Queue,
@@ -51,7 +130,9 @@ struct State {
 }
 
 impl State {
-    async fn new(window: Window, vertices: &Vec<Vertex>, indices: &Vec<u32>, wire: bool) -> Self {
+    async fn new(window: Window, mesh: Mesh, wire: bool) -> Self {
+        let vertices = mesh.extract_vertices();
+        let indices = mesh.extract_indices();
         let size = window.inner_size();
 
         // The instance is a handle to our GPU
@@ -208,17 +289,21 @@ impl State {
 
         let vertex_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("Vertex Buffer"),
-            contents: bytemuck::cast_slice(vertices),
+            contents: bytemuck::cast_slice(&vertices),
             usage: wgpu::BufferUsages::VERTEX,
         });
         let index_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("Index Buffer"),
-            contents: bytemuck::cast_slice(indices),
+            contents: bytemuck::cast_slice(&indices),
             usage: wgpu::BufferUsages::INDEX,
         });
         let num_indices = indices.len() as u32;
-
+        let controller = Controller::new();
+        
         Self {
+            mesh,
+            controller,
+            wire,
             surface,
             device,
             queue,
@@ -246,12 +331,35 @@ impl State {
         }
     }
 
-    #[allow(unused_variables)]
     fn input(&mut self, event: &WindowEvent) -> bool {
-        false
+        self.controller.process_events(event)
     }
 
-    fn update(&mut self) {}
+    fn update_buffers(&mut self) {
+        let vertices = self.mesh.extract_vertices();
+        let indices = self.mesh.extract_indices();
+        self.vertex_buffer = self.device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("Vertex Buffer"),
+            contents: bytemuck::cast_slice(&vertices),
+            usage: wgpu::BufferUsages::VERTEX,
+        });
+        self.index_buffer = self.device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("Index Buffer"),
+            contents: bytemuck::cast_slice(&indices),
+            usage: wgpu::BufferUsages::INDEX,
+        });
+        self.num_indices = indices.len() as u32;
+    }
+
+    fn update(&mut self) {
+        if self.controller.key_w_state == KeyState::Pressed {
+            self.wire = !self.wire;
+            self.controller.key_w_state = KeyState::Held;
+        }
+        if self.controller.update_mesh(&mut self.mesh) {
+            self.update_buffers();
+        }
+    }
 
     fn render(&mut self) -> Result<(), wgpu::SurfaceError> {
         let output = self.surface.get_current_texture()?;
@@ -288,9 +396,11 @@ impl State {
             render_pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
             render_pass.set_index_buffer(self.index_buffer.slice(..), wgpu::IndexFormat::Uint32);
             render_pass.draw_indexed(0..self.num_indices, 0, 0..1);
-            if let Some(ref wire_pipeline) = self.wire_pipeline {
-                render_pass.set_pipeline(wire_pipeline);
-                render_pass.draw_indexed(0..self.num_indices, 0, 0..1);
+            if self.wire {
+                if let Some(ref wire_pipeline) = self.wire_pipeline {
+                    render_pass.set_pipeline(wire_pipeline);
+                    render_pass.draw_indexed(0..self.num_indices, 0, 0..1);
+                }
             }
         }
 
@@ -302,7 +412,7 @@ impl State {
 }
 
 #[cfg_attr(target_arch="wasm32", wasm_bindgen(start))]
-pub async fn run(vertices: &Vec<Vertex>, indices: &Vec<u32>, wire: bool) {
+pub async fn run(mesh: Mesh, wire: bool) {
     // cfg_if::cfg_if! {
     //     if #[cfg(target_arch = "wasm32")] {
     //         std::panic::set_hook(Box::new(console_error_panic_hook::hook));
@@ -335,7 +445,7 @@ pub async fn run(vertices: &Vec<Vertex>, indices: &Vec<u32>, wire: bool) {
     }
 
     // State::new uses async code, so we're going to wait for it to finish
-    let mut state = State::new(window, vertices, indices, wire).await;
+    let mut state = State::new(window, mesh, wire).await;
 
     event_loop.run(move |event, _, control_flow| {
         match event {
