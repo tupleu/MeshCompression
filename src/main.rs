@@ -44,7 +44,7 @@ fn main() {
             let color_diff = Mesh::color_diff(&edge);
             // if color_diff == [0.0,0.0,0.0] {
                 match img_mesh.collapse_edge(edge) {
-                    Ok(i) => break,
+                    Ok(i) => continue,
                     Err(e) => println!("{:?}", e),
                     // Err(e) => (),
                 }
@@ -52,6 +52,8 @@ fn main() {
         }
 		
 	}
+	
+	//for _ in 0..10 { img_mesh.undo_nearest_edge_collapse(0.0, 0.0); }
 	
     println!("{:?}",img_mesh.tri_count());
 	
