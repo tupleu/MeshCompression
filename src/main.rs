@@ -35,37 +35,28 @@ fn main() {
         0
     };
 	let img = image::open(img_path).unwrap();
-	// let _img1 = image::open("./tests/mario.webp").unwrap();
-	// let _img1 = image::open("./tests/mariobros.png").unwrap();
 
-	//let _img2 = image::open("./../../tests/test2-small.jpeg").unwrap();
-	//let _img3 = image::open("./../../tests/test3.jpg").unwrap();
-	//let _img4 = image::open("./../../tests/test4.jpg").unwrap();
 	
-	
-	
-	
-	let mut img_mesh = Mesh::from_image(img);
+	  let mut img_mesh = Mesh::from_image(img);
     println!("{:?}", img_mesh.tri_count());
 	
-	for _ in 0..1 {
-        for _ in 0..num_collapses {
-            let edge = img_mesh.get_random_edge();
-            let color_diff = Mesh::color_diff(&edge);
-            // if color_diff == [0.0,0.0,0.0] {
-                match img_mesh.collapse_edge(edge) {
-                    Ok(i) => continue,
-                    Err(e) => continue,//println!("{:?}", e),
-                    // Err(e) => (),
-                }
-            // }
-        }
+    for _ in 0..num_collapses {
+        let edge = img_mesh.get_random_edge();
+        let color_diff = Mesh::color_diff(&edge);
+        // if color_diff == [0.0,0.0,0.0] {
+            match img_mesh.collapse_edge(edge) {
+                Ok(i) => continue,
+                Err(e) => continue,//println!("{:?}", e),
+                // Err(e) => (),
+            }
+        // }
+    }
 		
-	}
 	
 	for _ in 0..num_undos { img_mesh.undo_nearest_edge_collapse(0.0, 0.0); }
 	
     //println!("{:?}",img_mesh.tri_count());
+
 	
 	// specific rules for collapsing - Brian
 	// * color
@@ -78,5 +69,5 @@ fn main() {
 	// screenshots/gif generation of refinement - Brian
 	// 
 	
-	pollster::block_on(run(&img_mesh.extract_vertices(), &img_mesh.extract_indices(), wire));
+	pollster::block_on(run(img_mesh, wire));
 }
