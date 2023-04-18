@@ -4,7 +4,7 @@ use image::DynamicImage;
 use std::collections::HashMap;
 use rand::Rng;
 use std::cmp;
-
+use core::f32::EPSILON;
 
 #[repr(C)]
 #[derive(Copy, Clone, Debug, Default, bytemuck::Pod, bytemuck::Zeroable)]

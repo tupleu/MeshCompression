@@ -97,7 +97,8 @@ impl Controller {
             self.key_x_state = KeyState::Held;
             println!("Edge Collapse");
             let initial_count = mesh.tri_count();
-            match mesh.collapse_edge() {
+			let edge = mesh.get_random_edge();
+            match mesh.collapse_edge(edge) {
                 Ok(i) => update = true,
                 Err(e) => println!("{:?}", e),
             }
