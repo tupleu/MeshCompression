@@ -94,18 +94,13 @@ impl Controller {
     fn update_mesh(&mut self, mesh: &mut Mesh) -> bool{
         let mut update = false;
         if self.key_x_state == KeyState::Pressed {
+            self.key_x_state = KeyState::Held;
             println!("Edge Collapse");
             let initial_count = mesh.tri_count();
-            self.key_x_state = KeyState::Held;
-            let edge = mesh.get_random_edge();
-            let color_diff = Mesh::color_diff(&edge);
-            // if color_diff == [0.0,0.0,0.0] {
-                match mesh.collapse_edge(edge) {
-                    Ok(i) => update = true,
-                    Err(e) => println!("{:?}", e),
-                    // Err(e) => (),
-                }
-            // }
+            match mesh.collapse_edge() {
+                Ok(i) => update = true,
+                Err(e) => println!("{:?}", e),
+            }
             println!("Triangle Count: {} -> {}\n", initial_count, mesh.tri_count());
         }
         update

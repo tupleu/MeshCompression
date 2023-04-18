@@ -5,6 +5,8 @@ use std::collections::HashMap;
 use rand::Rng;
 use std::cmp;
 
+const EPSILON: f32 = 0.0001_f32;
+
 #[repr(C)]
 #[derive(Copy, Clone, Debug, Default, bytemuck::Pod, bytemuck::Zeroable)]
 pub struct Vertex {
@@ -238,7 +240,7 @@ impl Mesh {
 		[(c2[0] - c1[0]).abs(), (c2[1] - c1[1]).abs(), (c2[2] - c1[2].abs())]
 	}
 	
-	pub fn get_neighboorhood(&self, start_edge: &Rc<RefCell<Edge>>) -> Vec<Rc<RefCell<Edge>>> {
+	pub fn get_neighborhood(&self, start_edge: &Rc<RefCell<Edge>>) -> Vec<Rc<RefCell<Edge>>> {
 		let mut edge = start_edge.clone();
 		let mut prev_edge;
 		let mut edges = Vec::new();
