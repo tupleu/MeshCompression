@@ -5,6 +5,7 @@ use std::collections::HashMap;
 use rand::Rng;
 use std::cmp;
 
+
 #[repr(C)]
 #[derive(Copy, Clone, Debug, Default, bytemuck::Pod, bytemuck::Zeroable)]
 pub struct Vertex {
@@ -280,6 +281,7 @@ impl Mesh {
 	}
 	
 	pub fn collapse_edge(&mut self, edge: Rc<RefCell<Edge>>) -> Result<(), String> {
+
 		println!("collapse");
 		self.assert_frozen(0);
 		// Check that the edge is not a boundary edge.
@@ -290,6 +292,8 @@ impl Mesh {
 		if Mesh::opposite(&edge).is_none() {
             return Err("invalid collapse".to_string());
         }
+	
+		
 		if edge.borrow().frozen { return Err("invalid collapse".to_string()); } 
 		
 		let next_edge = &Mesh::next(&edge);
@@ -378,41 +382,51 @@ impl Mesh {
 	fn undo_edge_collapse(&mut self, ref_edge: &Rc<RefCell<Edge>>) {
 		
 		let edges = self.get_neighboorhood(ref_edge);
-		
+		println!("-----");
 		for edge in &edges {
-			
-			println!("{:?}", edge.borrow().history);
+			let v = edge.borrow_mut().history.pop();
+			edge.borrow_mut().vertex = v;
+			if edge.borrow().frozen {
+				println!("frozen");
+			}
+			//println!("{:?}", edge.borrow().history);
 		}
 		
 	}
 	
-	pub fn undo_nearest_edge_collapse(&mut self, x: f32, y: f32) {
-		let mut nearest_vertex = None;
+	pub fn undo_nearest_edge_collapse(&mut self, x: f32, y: f32) -> bool {
+		let mut nearest_vertex = Vec::new();
 		let point = [x, y, 0.0];
-		let mut nearest = f32::INFINITY;
-		for vertex in &self.vertices {
+		for vertex in &mut self.vertices {
 			if vertex.borrow().state < 2 { continue; }
 			let d = distance(vertex.borrow().position, point);
-			if d < nearest {
-				nearest_vertex = Some(vertex);
-				nearest = d;
-			}
+			nearest_vertex.push((vertex.clone(), d));
+		}
+		nearest_vertex.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap());
+		
+		loop {
+			if nearest_vertex.is_empty() { break; }
+			if self.undo_edge_collapse_at(&nearest_vertex.pop().unwrap().0) {
+				return true;
+			}	
 		}
 		
-		self.undo_edge_collapse_at(nearest_vertex.unwrap().clone());	
+		false
 	}
 	
-	pub fn undo_edge_collapse_at(&mut self, at: Rc<RefCell<Vertex>>) {
+	pub fn undo_edge_collapse_at(&mut self, at: &Rc<RefCell<Vertex>>) -> bool {
 		let mut found_edge = None;
 		//let (v_remove, (v_revert1, v_revert2)) = self.history.remove(index as usize);
 		for edge in &mut self.edges {
 			if edge.borrow().frozen { continue; }
-			if Rc::ptr_eq(&Mesh::vertex(edge), &at) {
+			if Rc::ptr_eq(&Mesh::vertex(edge), at) {
 				found_edge = Some(edge.clone());
 				break;				
 			}
 		}
+		if found_edge.is_none() { return false; }
 		self.undo_edge_collapse(&found_edge.unwrap());
+		true
 	}
 	
 	fn repair_opposites(&mut self, e1: &Option<Rc<RefCell<Edge>>>, e2: &Option<Rc<RefCell<Edge>>>) {

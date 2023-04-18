@@ -53,9 +53,9 @@ fn main() {
 		
 	}
 	
-	//for _ in 0..10 { img_mesh.undo_nearest_edge_collapse(0.0, 0.0); }
+	for _ in 0..1000 { img_mesh.undo_nearest_edge_collapse(0.0, 0.0); }
 	
-    println!("{:?}",img_mesh.tri_count());
+    //println!("{:?}",img_mesh.tri_count());
 	
 	// specific rules for collapsing - Brian
 	// * color
