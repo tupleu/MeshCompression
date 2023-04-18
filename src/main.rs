@@ -24,6 +24,16 @@ fn main() {
     } else {
         false
     };
+	let num_collapses = if args.len() > 3{
+        args[3].parse::<usize>().unwrap()
+    } else {
+        1
+    };
+	let num_undos = if args.len() > 4{
+        args[4].parse::<usize>().unwrap()
+    } else {
+        0
+    };
 	let img = image::open(img_path).unwrap();
 	// let _img1 = image::open("./tests/mario.webp").unwrap();
 	// let _img1 = image::open("./tests/mariobros.png").unwrap();
@@ -39,13 +49,13 @@ fn main() {
     println!("{:?}", img_mesh.tri_count());
 	
 	for _ in 0..1 {
-        for _ in 0..100 {
+        for _ in 0..num_collapses {
             let edge = img_mesh.get_random_edge();
             let color_diff = Mesh::color_diff(&edge);
             // if color_diff == [0.0,0.0,0.0] {
                 match img_mesh.collapse_edge(edge) {
                     Ok(i) => continue,
-                    Err(e) => println!("{:?}", e),
+                    Err(e) => continue,//println!("{:?}", e),
                     // Err(e) => (),
                 }
             // }
@@ -53,7 +63,7 @@ fn main() {
 		
 	}
 	
-	for _ in 0..1000 { img_mesh.undo_nearest_edge_collapse(0.0, 0.0); }
+	for _ in 0..num_undos { img_mesh.undo_nearest_edge_collapse(0.0, 0.0); }
 	
     //println!("{:?}",img_mesh.tri_count());
 	
