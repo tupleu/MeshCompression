@@ -4,15 +4,26 @@ use image::DynamicImage;
 use std::collections::HashMap;
 use rand::Rng;
 
-const EPSILON: f32 = 0.0001_f32;
-
 #[repr(C)]
 #[derive(Copy, Clone, Debug, Default, bytemuck::Pod, bytemuck::Zeroable)]
 pub struct Vertex {
     pub(crate) position: [f32; 3],
 	pub(crate) color: [f32; 3],
 	index: u32,
-    anchor: u32, // 0: default, 1: x anchor, 2: y anchor, 3: xy anchor
+    anchor: u32
+}
+
+#[derive(Debug)]
+pub struct Edge {
+    vertex: Option<Rc<RefCell<Vertex>>>,
+    opposite: Option<Rc<RefCell<Edge>>>,
+    next: Option<Rc<RefCell<Edge>>>,
+    triangle: Option<Rc<RefCell<Triangle>>>,
+}
+
+#[derive(Debug)]
+pub struct Triangle {
+    edge: Option<Rc<RefCell<Edge>>>,
 }
 
 impl Vertex {
@@ -24,36 +35,6 @@ impl Vertex {
             anchor,
         }
     }
-
-    fn distance(a: Vertex, b: Vertex) -> f32 {
-        let dx = f32::powf(a.position[0] + b.position[0], 2.0);
-        let dy = f32::powf(a.position[1] + b.position[1], 2.0);
-        let dz = f32::powf(a.position[2] + b.position[2], 2.0);
-        f32::sqrt(dx + dy + dz)
-    }
-    fn midpoint(a: Vertex, b: Vertex) -> [f32; 3] {
-        let mid_x = (a.position[0] + b.position[0]) / 2.0;
-        let mid_y = (a.position[1] + b.position[1]) / 2.0;
-        let mid_z = (a.position[2] + b.position[2]) / 2.0;
-        [mid_x, mid_y, mid_z]
-    }
-    fn y_axis_aligned(a: Vertex, b: Vertex) -> bool {
-        (a.position[0]-b.position[0]).abs() < EPSILON 
-    }
-    fn x_axis_aligned(a: Vertex, b: Vertex) -> bool {
-        (a.position[1]-b.position[1]).abs() < EPSILON 
-    }
-    fn average_color(a: Vertex, b: Vertex) -> [f32; 3] {
-        [(a.color[0] + b.color[0]) / 2.0, (a.color[1] + b.color[1]) / 2.0, (a.color[2] + b.color[2]) / 2.0]
-    }
-}
-
-#[derive(Debug)]
-pub struct Edge {
-    vertex: Option<Rc<RefCell<Vertex>>>,
-    opposite: Option<Rc<RefCell<Edge>>>,
-    next: Option<Rc<RefCell<Edge>>>,
-    triangle: Option<Rc<RefCell<Triangle>>>,
 }
 
 impl Edge {
@@ -65,17 +46,17 @@ impl Edge {
             triangle: None,
         }))
     }
-    
-    // fn length(self) -> Option<f32> {
-    //     let a = self.vertex?.borrow().clone();
-    //     let b = self.next?.clone().borrow().vertex?.clone().borrow();
-    //     Some(Vertex::distance(a, *b))
-    // }
 }
 
-#[derive(Debug)]
-pub struct Triangle {
-    edge: Option<Rc<RefCell<Edge>>>,
+fn midpoint(p1: [f32; 3], p2: [f32; 3]) -> [f32; 3] {
+	let mid_x = (p1[0] + p2[0]) / 2.0;
+	let mid_y = (p1[1] + p2[1]) / 2.0;
+	let mid_z = (p1[2] + p2[2]) / 2.0;
+	[mid_x, mid_y, mid_z]
+}
+
+pub fn average_color(c1: &[f32; 3], c2: &[f32; 3]) -> [f32; 3] {
+	[(c1[0] + c2[0]) / 2.0, (c1[1] + c2[1]) / 2.0, (c1[2] + c2[2]) / 2.0]
 }
 
 #[derive(Debug)]
@@ -84,7 +65,6 @@ pub struct Mesh {
     edges: Vec<Rc<RefCell<Edge>>>,
     triangles: Vec<Rc<RefCell<Triangle>>>,
 	vertex_edge_map: HashMap<(usize, usize), Rc<RefCell<Edge>>>,
-    // edge_priority_queue,
 }
 
 impl Mesh {
@@ -113,11 +93,6 @@ impl Mesh {
 		
 		
 	//}
-    pub fn length(edge: &Rc<RefCell<Edge>>) -> f32 {
-      let v1 = *Mesh::vertex(edge).borrow();
-      let v2 = *Mesh::vertex(&Mesh::next(&Mesh::next(edge))).borrow();
-      Vertex::distance(v1, v2)
-    }
 
 	pub fn from_image(dynamic_image: DynamicImage) -> Mesh {
 		let width = dynamic_image.width() as usize;
@@ -132,9 +107,8 @@ impl Mesh {
 		for (x, y, pixel) in image.enumerate_pixels() {
 			let vx = (x as f32 / max_dimension as f32) - 1.0;
 			let vy = (y as f32 / max_dimension as f32) - 1.0;
-            let anchor = ((x == 0 || x == (width-1) as u32) as u32)*1 + ((y == 0 || y == (height-1) as u32) as u32)*2;
-            println!("{},{},{}",x,y,anchor);
-			mesh.vertices.push(Mesh::new_vertex([vx, vy*-1.0, 0.0], pixel.0, mesh.vertices.len() as u32, anchor));
+            let corner = ((x == 0 || x == (width-1) as u32) || (y == 0 || y == (height-1) as u32)) as u32;
+			mesh.vertices.push(Mesh::new_vertex([vx, vy*-1.0, 0.0], pixel.0, mesh.vertices.len() as u32, corner));
 		}
 		// Create triangles
 		for y in 0..height-1 {
@@ -207,7 +181,7 @@ impl Mesh {
 		[(c2[0] - c1[0]).abs(), (c2[1] - c1[1]).abs(), (c2[2] - c1[2].abs())]
 	}
 	
-	pub fn get_neighborhood(&self, start_edge: &Rc<RefCell<Edge>>) -> Vec<Rc<RefCell<Edge>>> {
+	pub fn get_neighboorhood(&self, start_edge: &Rc<RefCell<Edge>>) -> Vec<Rc<RefCell<Edge>>> {
 		let mut edge = start_edge.clone();
 		let mut prev_edge;
 		let mut edges = Vec::new();
@@ -235,60 +209,49 @@ impl Mesh {
 		edges
 	}// Loop <function> until <function>
 	
-	pub fn collapse_edge(&mut self) -> Result<(), String> {
-        self.edges.sort_by(|a, b| Mesh::length(a).partial_cmp(&Mesh::length(b)).unwrap_or(std::cmp::Ordering::Equal));
-        for edge in self.edges.iter() {
-            // Check that the edge is not a boundary edge.
-            if Mesh::opposite(&edge).is_none() {
-                continue
-            }
-            
-            let opposite_edge = Mesh::opposite(&edge).unwrap();
-            
-            let v1 = *Mesh::vertex(&edge).borrow();
-            let v2 = *Mesh::vertex(&opposite_edge).borrow();
-
-            // Calculate the new position of the vertex.
-            // println!("{:?}, {:?}", v1.borrow().anchor, v2.borrow().anchor);
-            let a1 = v1.anchor;
-            let a2 = v2.anchor;
-
-            let p1 = v1.position;
-            let p2 = v2.position;
-
-            let position = match (a1, a2) {
-                (0,0) => Vertex::midpoint(v1, v2),
-                (3,0) => p1,
-                (0,3) => p2,
-                (1,0) | (0,1) | (1,1) if Vertex::y_axis_aligned(v1, v2) => Vertex::midpoint(v1, v2),
-                (3,1) if Vertex::y_axis_aligned(v1, v2) => p1,
-                (1,3) if Vertex::y_axis_aligned(v1, v2) => p2,
-                (2,0) | (0,2) | (2,2) if Vertex::x_axis_aligned(v1, v2) => Vertex::midpoint(v1, v2),
-                (3,2) if Vertex::x_axis_aligned(v1, v2) => p1,
-                (2,3) if Vertex::x_axis_aligned(v1, v2) => p2,
-                _ => continue,
-            };
-		
-            let color = Vertex::average_color(v1, v2);
-            let color2 = Vertex::average_color(v1, v2);
-            
-            let v_new = Mesh::new_vertex(position, color, self.vertices.len() as u32, a1 | a2);
-            
-            // Update all edges that use those verticies with v_new
-            for edge_ in self.get_neighborhood(&edge) {
-                edge_.borrow_mut().vertex = Some(v_new.clone());	
-            }
-            for edge_ in self.get_neighborhood(&opposite_edge) {
-                edge_.borrow_mut().vertex = Some(v_new.clone());
-            }
-            self.vertices.push(v_new);
-            
-            self.remove_triangle(Mesh::triangle(&edge)); 
-            self.remove_triangle(Mesh::triangle(&opposite_edge)); 
-            
-            return Ok(());
+	pub fn collapse_edge(&mut self, edge: Rc<RefCell<Edge>>) -> Result<(), String> {
+		// Check that the edge is not a boundary edge.
+		if Mesh::opposite(&edge).is_none() {
+            return Err("invalid collapse".to_string());
         }
-        Err("no valid collapses".to_string())
+		
+		let opposite_edge = Mesh::opposite(&edge).unwrap()	;
+		
+		let v1 = Mesh::vertex(&edge);
+		let v2 = Mesh::vertex(&opposite_edge);
+
+        if v1.borrow().anchor == 1 && v2.borrow().anchor == 1 {
+            return Err("invalid collapse".to_string());
+        }
+
+		// Calculate the new position of the vertex.
+        // println!("{:?}, {:?}", v1.borrow().anchor, v2.borrow().anchor);
+		let position = match (v1.borrow().anchor, v2.borrow().anchor) {
+		    (0,0) => midpoint(v1.borrow().position, v2.borrow().position),
+		    (1,0) => v1.borrow().position,
+		    (0,1) => v2.borrow().position,
+            _ => return Err("invalid collapse".to_string()),
+		};
+		
+		
+		
+		let color = average_color(&v1.borrow().color, &v2.borrow().color);
+        
+		let v_new = Mesh::new_vertex(position, color, self.vertices.len() as u32, v1.borrow().anchor | v2.borrow().anchor);
+		
+		// Update all edges that use those verticies with v_new
+		for edge_ in self.get_neighboorhood(&edge) {
+			edge_.borrow_mut().vertex = Some(v_new.clone());	
+		}
+		for edge_ in self.get_neighboorhood(&opposite_edge) {
+			edge_.borrow_mut().vertex = Some(v_new.clone());
+		}
+		self.vertices.push(v_new);
+		
+		self.remove_triangle(Mesh::triangle(&edge)); 
+		self.remove_triangle(Mesh::triangle(&opposite_edge)); 
+		
+        Ok(())
 	}
 	
 	pub fn remove_triangle(&mut self, triangle: Rc<RefCell<Triangle>>) -> bool {

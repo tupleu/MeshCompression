@@ -25,6 +25,15 @@ fn main() {
         false
     };
 	let img = image::open(img_path).unwrap();
+	// let _img1 = image::open("./tests/mario.webp").unwrap();
+	// let _img1 = image::open("./tests/mariobros.png").unwrap();
+
+	//let _img2 = image::open("./../../tests/test2-small.jpeg").unwrap();
+	//let _img3 = image::open("./../../tests/test3.jpg").unwrap();
+	//let _img4 = image::open("./../../tests/test4.jpg").unwrap();
+	
+	
+	
 	
 	let img_mesh = Mesh::from_image(img);
     println!("Triangle Count: {}", img_mesh.tri_count());
