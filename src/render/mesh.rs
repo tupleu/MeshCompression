@@ -11,25 +11,9 @@ pub struct Vertex {
     pub(crate) position: [f32; 3],
 	pub(crate) color: [f32; 3],
 	index: u32,
-    anchor: u16,
+    anchor: u16,  // 0: default, 1: x anchor, 2: y anchor, 3: xy anchor
 	state: u16,
 }
-
-#[derive(Debug)]
-pub struct Edge {
-    vertex: Option<Rc<RefCell<Vertex>>>,
-    opposite: Option<Rc<RefCell<Edge>>>,
-    next: Option<Rc<RefCell<Edge>>>,
-    triangle: Option<Rc<RefCell<Triangle>>>,
-	history: Vec<Rc<RefCell<Vertex>>>,
-	frozen: bool,
-}
-
-#[derive(Debug)]
-pub struct Triangle {
-    edge: Option<Rc<RefCell<Edge>>>,
-}
-
 
 impl Vertex {
     fn new(position: [f32; 3], color: [f32; 3], index: u32, anchor: u16) -> Self {
@@ -41,6 +25,38 @@ impl Vertex {
 			state: 1,
         }
     }
+
+    fn distance(a: Vertex, b: Vertex) -> f32 {
+        let dx = f32::powf(a.position[0] + b.position[0], 2.0);
+        let dy = f32::powf(a.position[1] + b.position[1], 2.0);
+        let dz = f32::powf(a.position[2] + b.position[2], 2.0);
+        f32::sqrt(dx + dy + dz)
+    }
+    fn midpoint(a: Vertex, b: Vertex) -> [f32; 3] {
+        let mid_x = (a.position[0] + b.position[0]) / 2.0;
+        let mid_y = (a.position[1] + b.position[1]) / 2.0;
+        let mid_z = (a.position[2] + b.position[2]) / 2.0;
+        [mid_x, mid_y, mid_z]
+    }
+    fn y_axis_aligned(a: Vertex, b: Vertex) -> bool {
+        (a.position[0]-b.position[0]).abs() < EPSILON 
+    }
+    fn x_axis_aligned(a: Vertex, b: Vertex) -> bool {
+        (a.position[1]-b.position[1]).abs() < EPSILON 
+    }
+    fn average_color(a: Vertex, b: Vertex) -> [f32; 3] {
+        [(a.color[0] + b.color[0]) / 2.0, (a.color[1] + b.color[1]) / 2.0, (a.color[2] + b.color[2]) / 2.0]
+    }
+}
+
+#[derive(Debug)]
+pub struct Edge {
+    vertex: Option<Rc<RefCell<Vertex>>>,
+    opposite: Option<Rc<RefCell<Edge>>>,
+    next: Option<Rc<RefCell<Edge>>>,
+    triangle: Option<Rc<RefCell<Triangle>>>,
+	history: Vec<Rc<RefCell<Vertex>>>,
+	frozen: bool,
 }
 
 impl Edge {
@@ -62,7 +78,6 @@ fn midpoint(p1: [f32; 3], p2: [f32; 3]) -> [f32; 3] {
 	let mid_z = (p1[2] + p2[2]) / 2.0;
 	[mid_x, mid_y, mid_z]
 }
-
 fn distance(p1: [f32; 3], p2: [f32; 3]) -> f32 {
 	let dx = f32::powf(p1[0] + p2[0], 2.0);
 	let dy = f32::powf(p1[1] + p2[1], 2.0);
@@ -70,8 +85,9 @@ fn distance(p1: [f32; 3], p2: [f32; 3]) -> f32 {
 	f32::sqrt(dx + dy + dz)
 }
 
-pub fn average_color(c1: &[f32; 3], c2: &[f32; 3]) -> [f32; 3] {
-	[(c1[0] + c2[0]) / 2.0, (c1[1] + c2[1]) / 2.0, (c1[2] + c2[2]) / 2.0]
+#[derive(Debug)]
+pub struct Triangle {
+    edge: Option<Rc<RefCell<Edge>>>,
 }
 
 #[derive(Debug)]
@@ -124,9 +140,9 @@ impl Mesh {
 		for (x, y, pixel) in image.enumerate_pixels() {
 			let vx = (x as f32 / max_dimension as f32) - 1.0;
 			let vy = (y as f32 / max_dimension as f32) - 1.0;
-            let corner = ((x == 0 || x == (width-1) as u32) && (y == 0 || y == (height-1) as u32)) as u16;
-			mesh.vertices.push(Mesh::new_vertex([vx, vy*-1.0, 0.0], pixel.0, mesh.vertices.len() as u32, corner));
-			//if corner != 0 { println!("{}", corner) }
+            let anchor = ((x == 0 || x == (width-1) as u32) as u16)*1 + ((y == 0 || y == (height-1) as u32) as u16)*2;
+            println!("{},{},{}",x,y,anchor);
+			mesh.vertices.push(Mesh::new_vertex([vx, vy*-1.0, 0.0], pixel.0, mesh.vertices.len() as u32, anchor));
 			count += 1;
 		}
 		println!("{} counted", count);
@@ -279,105 +295,166 @@ impl Mesh {
 		assert!(count <= expected);
 	}
 	
-	pub fn collapse_edge(&mut self, edge: Rc<RefCell<Edge>>) -> Result<(), String> {
+	pub fn collapse_edge(&mut self) -> Result<(), String> {
 		println!("collapse");
 		self.assert_frozen(0);
-		// Check that the edge is not a boundary edge.
-		// Todo: this is not always an invalid collapse (if both verticies are anchored in a shared direction), but will some modifications to deal with
-		//if has_opposite {
-        //    return Err("invalid collapse".to_string());
-        //}
-		if Mesh::opposite(&edge).is_none() {
-            return Err("invalid collapse".to_string());
-        }
-		if edge.borrow().frozen { return Err("invalid collapse".to_string()); } 
-		
-		let next_edge = &Mesh::next(&edge);
-		
-		let v1 = Mesh::vertex(&edge);
-		let v2 = Mesh::vertex(&next_edge);
-		//let v3 = Mesh::vertex(&Mesh::opposite(&edge).unwrap());
-		//println!("{:?}", v2);
-		//println!("{:?}", v3);
-		
-		if v1.borrow().anchor == 1 && v2.borrow().anchor == 1 {
-            return Err("invalid collapse".to_string());
-        }
-		
-		// last chance to invalidate
-		// invalidate if there is not an opposite and the states are not equal or 0
-		let has_opposite = Mesh::opposite(&edge).is_some();
-		if !has_opposite && v1.borrow().state != 0 && v2.borrow().state != 0 && v1.borrow().state != v2.borrow().state {
-			return Err("invalid collapse".to_string());
-		}
-		
-		// Calculate the new position of the vertex.
-        // println!("{:?}, {:?}", v1.borrow().anchor, v2.borrow().anchor);
-		let position = match (v1.borrow().anchor, v2.borrow().anchor) {
-		    (0,0) => midpoint(v1.borrow().position, v2.borrow().position),
-		    (1,0) => v1.borrow().position,
-		    (0,1) => v2.borrow().position,
-            _ => return Err("invalid collapse".to_string()),
-		};
-		
-		let color = average_color(&v1.borrow().color, &v2.borrow().color);
-        
-		let v_new = Mesh::new_vertex(position, color, self.vertices.len() as u32, v1.borrow().anchor | v2.borrow().anchor);
-		
-		v_new.borrow_mut().state = if v1.borrow().state > v2.borrow().state { v1.borrow().state } else { v2.borrow().state } + 1;
-		
-		
-		self.remove_triangle(&edge); 
-		if has_opposite {
-			assert!(!Mesh::opposite(&edge).unwrap().borrow().frozen);
-			assert!(!Rc::ptr_eq(&edge, &Mesh::opposite(&edge).unwrap()));
-			assert!(!Rc::ptr_eq(&Mesh::vertex(&edge), &Mesh::vertex(&Mesh::opposite(&edge).unwrap())));
-			self.assert_frozen(3);
-			self.remove_triangle(&Mesh::opposite(&edge).unwrap()); 
-			self.assert_frozen(4);
-		}
-		
-		// Update all edges that use those verticies with v_new
-		for e in self.get_neighboorhood(&edge) {
+        // self.edges.sort_by(|a, b| Mesh::length(a).partial_cmp(&Mesh::length(b)).unwrap_or(std::cmp::Ordering::Equal));
+        // for edge in self.edges.iter() {
+			let edge = self.get_random_edge();
+			// Check that the edge is not a boundary edge.
+			// Todo: this is not always an invalid collapse (if both verticies are anchored in a shared direction), but will some modifications to deal with
+			//if has_opposite {
+			//    return Err("invalid collapse".to_string());
+			//}
+			if edge.borrow().frozen { return Err("invalid collapse".to_string()); } 
 			
-			//println!("{:?}", e.borrow().vertex);
-			e.borrow_mut().vertex = Some(v_new.clone());
-			e.borrow_mut().history.push(v1.clone());
-			//println!("hi");
-		}
-		
-		// do the same for the opposite, if it exists
-		for e in self.get_neighboorhood(&next_edge) {
-			//println!("{:?}", e.borrow().vertex);
-			e.borrow_mut().vertex = Some(v_new.clone());
-			e.borrow_mut().history.push(v2.clone());
+			let next_edge = &Mesh::next(&edge);
 			
-			//println!("hi2");
-		}
-		
-		self.vertices.push(v_new);
-		
-		
-		
-		
-		
-		
-		self.repair_opposites(&Mesh::opposite(&Mesh::next(&edge)), &Mesh::opposite(&Mesh::next(&Mesh::next(&edge))));
-		
-		if has_opposite {
-			self.assert_frozen(2);
-			self.repair_opposites(&Mesh::opposite(&Mesh::next(&Mesh::opposite(&edge).unwrap())), &Mesh::opposite(&Mesh::next(&Mesh::next(&Mesh::opposite(&edge).unwrap()))));
-		}
-		
-		self.assert_frozen(0);
-		
-		
-        Ok(())
+			let v1 = *Mesh::vertex(&edge).borrow();
+			let v2 = *Mesh::vertex(&next_edge).borrow();
+			//let v3 = Mesh::vertex(&Mesh::opposite(&edge).unwrap());
+			//println!("{:?}", v2);
+			//println!("{:?}", v3);
+			
+			// last chance to invalidate
+			// invalidate if there is not an opposite and the states are not equal or 0
+			let has_opposite = Mesh::opposite(&edge).is_some();
+			if !has_opposite && v1.state != 0 && v2.state != 0 && v1.state != v2.state {
+				return Err("invalid collapse".to_string());
+			}
+			
+			// Calculate the new position of the vertex.
+			// println!("{:?}, {:?}", v1.borrow().anchor, v2.borrow().anchor);
+			let a1 = v1.anchor;
+			let a2 = v2.anchor;
+
+			let p1 = v1.position;
+			let p2 = v2.position;
+
+			let position = match (a1, a2) {
+				(0,0) => Vertex::midpoint(v1, v2),
+				(3,0) => p1,
+				(0,3) => p2,
+				(1,0) | (0,1) | (1,1) if Vertex::y_axis_aligned(v1, v2) => Vertex::midpoint(v1, v2),
+				(3,1) if Vertex::y_axis_aligned(v1, v2) => p1,
+				(1,3) if Vertex::y_axis_aligned(v1, v2) => p2,
+				(2,0) | (0,2) | (2,2) if Vertex::x_axis_aligned(v1, v2) => Vertex::midpoint(v1, v2),
+				(3,2) if Vertex::x_axis_aligned(v1, v2) => p1,
+				(2,3) if Vertex::x_axis_aligned(v1, v2) => p2,
+				// _ => continue,
+				_ => return Err("no valid collapses".to_string()),
+				};
+			
+				let color = Vertex::average_color(v1, v2);
+			
+			let v_new = Mesh::new_vertex(position, color, self.vertices.len() as u32, a1 | a2);
+			
+			v_new.borrow_mut().state = if v1.state > v2.state { v1.state } else { v2.state } + 1;
+			
+			
+			self.remove_triangle(&edge); 
+			if has_opposite {
+				assert!(!Mesh::opposite(&edge).unwrap().borrow().frozen);
+				assert!(!Rc::ptr_eq(&edge, &Mesh::opposite(&edge).unwrap()));
+				assert!(!Rc::ptr_eq(&Mesh::vertex(&edge), &Mesh::vertex(&Mesh::opposite(&edge).unwrap())));
+				self.assert_frozen(3);
+				self.remove_triangle(&Mesh::opposite(&edge).unwrap()); 
+				self.assert_frozen(4);
+			}
+			
+			// Update all edges that use those verticies with v_new
+			for e in self.get_neighborhood(&edge) {
+				
+				//println!("{:?}", e.borrow().vertex);
+				e.borrow_mut().vertex = Some(v_new.clone());
+				e.borrow_mut().history.push(Mesh::vertex(&edge).clone());
+				//println!("hi");
+			}
+			
+			// do the same for the opposite, if it exists
+			for e in self.get_neighborhood(&next_edge) {
+				//println!("{:?}", e.borrow().vertex);
+				e.borrow_mut().vertex = Some(v_new.clone());
+				e.borrow_mut().history.push(Mesh::vertex(&next_edge).clone());
+				
+				//println!("hi2");
+			}
+			
+			self.vertices.push(v_new);
+			
+			
+			self.repair_opposites(&Mesh::opposite(&Mesh::next(&edge)), &Mesh::opposite(&Mesh::next(&Mesh::next(&edge))));
+			
+			if has_opposite {
+				self.assert_frozen(2);
+				self.repair_opposites(&Mesh::opposite(&Mesh::next(&Mesh::opposite(&edge).unwrap())), &Mesh::opposite(&Mesh::next(&Mesh::next(&Mesh::opposite(&edge).unwrap()))));
+			}
+			
+			self.assert_frozen(0);
+			
+			return Ok(());
+		// }
+		// Err("no valid collapses".to_string())
 	}
+	// pub fn collapse_edge(&mut self) -> Result<(), String> {
+    //     self.edges.sort_by(|a, b| Mesh::length(a).partial_cmp(&Mesh::length(b)).unwrap_or(std::cmp::Ordering::Equal));
+    //     for edge in self.edges.iter() {
+    //         // Check that the edge is not a boundary edge.
+    //         if Mesh::opposite(&edge).is_none() {
+    //             continue
+    //         }
+            
+    //         let opposite_edge = Mesh::opposite(&edge).unwrap();
+            
+    //         let v1 = *Mesh::vertex(&edge).borrow();
+    //         let v2 = *Mesh::vertex(&opposite_edge).borrow();
+
+    //         // Calculate the new position of the vertex.
+    //         // println!("{:?}, {:?}", v1.borrow().anchor, v2.borrow().anchor);
+    //         let a1 = v1.anchor;
+    //         let a2 = v2.anchor;
+
+    //         let p1 = v1.position;
+    //         let p2 = v2.position;
+
+    //         let position = match (a1, a2) {
+    //             (0,0) => Vertex::midpoint(v1, v2),
+    //             (3,0) => p1,
+    //             (0,3) => p2,
+    //             (1,0) | (0,1) | (1,1) if Vertex::y_axis_aligned(v1, v2) => Vertex::midpoint(v1, v2),
+    //             (3,1) if Vertex::y_axis_aligned(v1, v2) => p1,
+    //             (1,3) if Vertex::y_axis_aligned(v1, v2) => p2,
+    //             (2,0) | (0,2) | (2,2) if Vertex::x_axis_aligned(v1, v2) => Vertex::midpoint(v1, v2),
+    //             (3,2) if Vertex::x_axis_aligned(v1, v2) => p1,
+    //             (2,3) if Vertex::x_axis_aligned(v1, v2) => p2,
+    //             _ => continue,
+    //         };
+		
+    //         let color = Vertex::average_color(v1, v2);
+    //         let color2 = Vertex::average_color(v1, v2);
+            
+    //         let v_new = Mesh::new_vertex(position, color, self.vertices.len() as u32, a1 | a2);
+            
+    //         // Update all edges that use those verticies with v_new
+    //         for edge_ in self.get_neighborhood(&edge) {
+    //             edge_.borrow_mut().vertex = Some(v_new.clone());	
+    //         }
+    //         for edge_ in self.get_neighborhood(&opposite_edge) {
+    //             edge_.borrow_mut().vertex = Some(v_new.clone());
+    //         }
+    //         self.vertices.push(v_new);
+            
+    //         self.remove_triangle(Mesh::triangle(&edge)); 
+    //         self.remove_triangle(Mesh::triangle(&opposite_edge)); 
+            
+    //         return Ok(());
+    //     }
+    //     Err("no valid collapses".to_string())
+	// }
 	
 	fn undo_edge_collapse(&mut self, ref_edge: &Rc<RefCell<Edge>>) {
 		
-		let edges = self.get_neighboorhood(ref_edge);
+		let edges = self.get_neighborhood(ref_edge);
 		
 		for edge in &edges {
 			
