@@ -113,6 +113,7 @@ impl Mesh {
 	pub fn from_image(dynamic_image: DynamicImage) -> Mesh {
 		let width = dynamic_image.width() as usize;
 		let height = dynamic_image.height() as usize;
+		println!("{}x{}", width, height);
 		let image = dynamic_image.to_rgb32f();
 		
 		let mut mesh = Mesh::new();
@@ -120,13 +121,17 @@ impl Mesh {
 		let max_dimension = (if width > height { width - 1 } else { height - 1 } as f32) / 2.0;
 		
 		// Create vertices
+		let mut count = 0;
 		for (x, y, pixel) in image.enumerate_pixels() {
 			let vx = (x as f32 / max_dimension as f32) - 1.0;
 			let vy = (y as f32 / max_dimension as f32) - 1.0;
             let corner = ((x == 0 || x == (width-1) as u32) && (y == 0 || y == (height-1) as u32)) as u16;
 			mesh.vertices.push(Mesh::new_vertex([vx, vy*-1.0, 0.0], pixel.0, mesh.vertices.len() as u32, corner));
-			if corner != 0 { println!("{}", corner) }
+			//if corner != 0 { println!("{}", corner) }
+			count += 1;
 		}
+		println!("{} counted", count);
+		println!("{}/{} vertices", mesh.vertices.len(), (width)*(height));
 		// Create triangles
 		for y in 0..height-1 {
 			for x in 0..width-1 {
@@ -134,10 +139,13 @@ impl Mesh {
 				let i2 = x + (width * y) + 1;
 				let i3 = x + (width * (y+1)) + 1;
 				let i4 = x + (width * (y+1));
-				mesh.add_triangle(&[i3, i2, i4]);
-				mesh.add_triangle(&[i2, i1, i4]);
+				mesh.add_triangle(&[i1, i4, i2]);
+				mesh.add_triangle(&[i4, i3, i2]);
+				
 			}
 		}
+		println!("{}/{} triangles", mesh.triangles.len(), (width-1)*(height-1)*2);
+		println!("{}/{} edges", mesh.edges.len(), (width-1)*(height-1)*6);
 		mesh
 	}
 
@@ -155,10 +163,26 @@ impl Mesh {
 		vertices
 	}
 	
+	fn is_clockwise(edge: &Rc<RefCell<Edge>>) -> bool {
+		let v1 = Mesh::vertex(edge).borrow().position;
+		let v2 = Mesh::vertex(&Mesh::next(edge)).borrow().position;
+		let v3 = Mesh::vertex(&Mesh::next(&Mesh::next(edge))).borrow().position;
+		
+		let e1 = (v2[0] - v1[0])*(v2[0] + v1[0]);
+		let e2 = (v3[0] - v2[0])*(v3[0] + v2[0]);
+		let e3 = (v1[0] - v3[0])*(v1[0] + v3[0]);
+		
+		if e1+e2 < 0.0 || e2-e3 < 0.0{ return true; }
+		
+		false
+	}
+	
 	pub fn extract_indices(&self) -> Vec<u32> {
+		let mut count = 0;
 		let mut indices = Vec::new();
 		for tri in &self.triangles {
 			let mut current_edge = Rc::clone(&tri.borrow().edge.as_ref().unwrap());
+			count +=1;
 			
 			indices.push(Mesh::vertex(&current_edge).borrow().index);
 			current_edge = Mesh::next(&current_edge);
@@ -167,8 +191,9 @@ impl Mesh {
 			current_edge = Mesh::next(&current_edge);
 			
 			indices.push(Mesh::vertex(&current_edge).borrow().index);
+			
 		}
-		// println!("Extracted indicies!");
+		println!("Extracted {} triangles!", indices.len() / 3);
 		indices
 	}
 	
@@ -203,37 +228,81 @@ impl Mesh {
 		let mut prev_edge;
 		let mut edges = Vec::new();
 		loop {
-			edges.push(edge.clone());
+			if !edge.borrow().frozen { 
+				edges.push(edge.clone()); 
+				//println!("	- {:?}", edge.borrow().vertex);
+				assert!(Rc::ptr_eq(&Mesh::vertex(start_edge), &Mesh::vertex(&edge)));
+			} else {
+				//assert!(false);
+				println!("	~ {:?}", edge.borrow().vertex);
+			}
+			
 			prev_edge = edge.clone();
 			let edge_opt = Mesh::opposite(&edge);
-			if edge_opt.is_none() { break; }
+			if edge_opt.is_none() { println!("bad"); break; }
 			edge = Mesh::next(&edge_opt.unwrap());
 			if Rc::ptr_eq(&edge, &start_edge) { break; }
+			for e in &edges {
+				assert!(!Rc::ptr_eq(&e, &edge));
+			}
+			
 		}
 		edge = start_edge.clone();
+		/*
 		let mut edge_opt;
 		loop {
-			edge = Mesh::next(&Mesh::next(&edge));
+			
+			edge = Mesh::next(&edge);
 			edge_opt = Mesh::opposite(&edge);
 			if edge_opt.is_none() { break; }
 			edge = edge_opt.unwrap();
 			if Rc::ptr_eq(&edge, &prev_edge) { break; }
-			if Rc::ptr_eq(&edge, &start_edge) { break; }
-			edges.push(edge.clone());
+			//if Rc::ptr_eq(&edge, &start_edge) { break; }
+			if !edge.borrow().frozen { 
+				edges.push(edge.clone());
+				assert!(Rc::ptr_eq(&Mesh::vertex(start_edge), &Mesh::vertex(&edge)));
+			}
 			
-		}
-		//if edges.len() != 4 { println!("{}", edges.len()) }
+		}*/
+		println!("length {}", edges.len());
 		edges
 	}// Loop <function> until <function>
 	
+	fn assert_frozen (&self, expected: usize) {
+		let mut count = 0;
+		for edge in &self.edges {
+			if edge.borrow().frozen {continue;}
+			let op = Mesh::opposite(&edge);
+			if op.is_none() { continue; }
+			if op.unwrap().borrow().frozen {count += 1;}
+		}
+		println!("frozen count = {}/{}", count, expected);
+		assert!(count <= expected);
+	}
+	
 	pub fn collapse_edge(&mut self, edge: Rc<RefCell<Edge>>) -> Result<(), String> {
+
+		println!("collapse");
+		self.assert_frozen(0);
+		// Check that the edge is not a boundary edge.
+		// Todo: this is not always an invalid collapse (if both verticies are anchored in a shared direction), but will some modifications to deal with
+		//if has_opposite {
+        //    return Err("invalid collapse".to_string());
+        //}
+		if Mesh::opposite(&edge).is_none() {
+            return Err("invalid collapse".to_string());
+        }
 	
 		
 		if edge.borrow().frozen { return Err("invalid collapse".to_string()); } 
 		
+		let next_edge = &Mesh::next(&edge);
 		
 		let v1 = Mesh::vertex(&edge);
-		let v2 = Mesh::vertex(&Mesh::next(&Mesh::next(&edge)));
+		let v2 = Mesh::vertex(&next_edge);
+		//let v3 = Mesh::vertex(&Mesh::opposite(&edge).unwrap());
+		//println!("{:?}", v2);
+		//println!("{:?}", v3);
 		
 		if v1.borrow().anchor == 1 && v2.borrow().anchor == 1 {
             return Err("invalid collapse".to_string());
@@ -261,31 +330,51 @@ impl Mesh {
 		
 		v_new.borrow_mut().state = if v1.borrow().state > v2.borrow().state { v1.borrow().state } else { v2.borrow().state } + 1;
 		
+		
+		self.remove_triangle(&edge); 
+		if has_opposite {
+			assert!(!Mesh::opposite(&edge).unwrap().borrow().frozen);
+			assert!(!Rc::ptr_eq(&edge, &Mesh::opposite(&edge).unwrap()));
+			assert!(!Rc::ptr_eq(&Mesh::vertex(&edge), &Mesh::vertex(&Mesh::opposite(&edge).unwrap())));
+			self.assert_frozen(3);
+			self.remove_triangle(&Mesh::opposite(&edge).unwrap()); 
+			self.assert_frozen(4);
+		}
+		
 		// Update all edges that use those verticies with v_new
 		for e in self.get_neighboorhood(&edge) {
+			
+			//println!("{:?}", e.borrow().vertex);
 			e.borrow_mut().vertex = Some(v_new.clone());
 			e.borrow_mut().history.push(v1.clone());
+			//println!("hi");
 		}
 		
 		// do the same for the opposite, if it exists
-		if has_opposite { 
-			for e in self.get_neighboorhood(&Mesh::opposite(&edge).unwrap()) {
-				e.borrow_mut().vertex = Some(v_new.clone());
-				e.borrow_mut().history.push(v2.clone());
-			}
+		for e in self.get_neighboorhood(&next_edge) {
+			//println!("{:?}", e.borrow().vertex);
+			e.borrow_mut().vertex = Some(v_new.clone());
+			e.borrow_mut().history.push(v2.clone());
+			
+			//println!("hi2");
 		}
 		
 		self.vertices.push(v_new);
 		
-		self.remove_triange(Mesh::triangle(&edge)); 
-		self.repair_opposites(&Mesh::next(&edge).borrow().opposite, &Mesh::next(&Mesh::next(&edge)).borrow().opposite);
 		
-		// do the same if we have an opposite
+		
+		
+		
+		
+		self.repair_opposites(&Mesh::opposite(&Mesh::next(&edge)), &Mesh::opposite(&Mesh::next(&Mesh::next(&edge))));
+		
 		if has_opposite {
-			let opposite_edge = Mesh::opposite(&edge).unwrap();
-			self.remove_triange(Mesh::triangle(&opposite_edge)); 
-			self.repair_opposites(&Mesh::next(&opposite_edge).borrow().opposite, &Mesh::next(&Mesh::next(&opposite_edge)).borrow().opposite);
+			self.assert_frozen(2);
+			self.repair_opposites(&Mesh::opposite(&Mesh::next(&Mesh::opposite(&edge).unwrap())), &Mesh::opposite(&Mesh::next(&Mesh::next(&Mesh::opposite(&edge).unwrap()))));
 		}
+		
+		self.assert_frozen(0);
+		
 		
         Ok(())
 	}
@@ -344,6 +433,12 @@ impl Mesh {
 		if e1.is_some() &&  e2.is_some() { 
 			e1.clone().unwrap().borrow_mut().opposite = e2.clone(); 
 			e2.clone().unwrap().borrow_mut().opposite = e1.clone();
+			assert!(!Rc::ptr_eq(&e1.clone().unwrap(), &e2.clone().unwrap()));
+			assert!(Rc::ptr_eq(&Mesh::opposite(&e1.clone().unwrap()).unwrap(), &e2.clone().unwrap()));
+			assert!(Rc::ptr_eq(&Mesh::opposite(&e2.clone().unwrap()).unwrap(), &e1.clone().unwrap()));
+			assert!(!e1.clone().unwrap().borrow().frozen);
+			assert!(!e2.clone().unwrap().borrow().frozen);
+			//println!("??");
 			return;
 		}
 		if e1.is_none() &&  e2.is_some() { 
@@ -357,23 +452,26 @@ impl Mesh {
 		
 	}
 	
-	pub fn remove_triange(&mut self, triangle: Rc<RefCell<Triangle>>) -> bool {
-		let edge_to_remove = Mesh::edge(&triangle);
-		
+	pub fn remove_triangle(&mut self, edge_to_remove: &Rc<RefCell<Edge>>) -> bool {
+		//assert!(Rc::ptr_eq(&triangle, &Mesh::triangle(&edge_to_remove)));
 		let mut index_to_remove: Option<usize> = None;
-		for (i, triangle) in self.triangles.iter().enumerate() {
-			if Rc::ptr_eq(&Mesh::edge(triangle), &edge_to_remove) {
+		for (i, t) in self.triangles.iter().enumerate() {
+			if Rc::ptr_eq(&t, &Mesh::triangle(&edge_to_remove)) {
 				index_to_remove = Some(i);
 				break;
 			}
 		}
-		if index_to_remove.is_none() { return false; }
+		if index_to_remove.is_none() { println!("removal failed?"); return false; }
 		
 		// Freeze the edges
+		let edge_next = Mesh::next(&edge_to_remove);
+		let edge_next_next = Mesh::next(&Mesh::next(&edge_to_remove));
 		edge_to_remove.borrow_mut().frozen = true;
-		Mesh::next(&edge_to_remove).borrow_mut().frozen = true;
-		Mesh::next(&Mesh::next(&edge_to_remove)).borrow_mut().frozen = true;
-		
+		edge_next.borrow_mut().frozen = true;
+		edge_next_next.borrow_mut().frozen = true;
+		assert!(Rc::ptr_eq(&Mesh::triangle(edge_to_remove), &Mesh::triangle(&edge_next)));
+		assert!(Rc::ptr_eq(&Mesh::triangle(edge_to_remove), &Mesh::triangle(&edge_next_next)));
+		//println!("~~~~~~~~~~~~~~~~~~~~~~~~~{:?}", Mesh::vertex(edge_to_remove));
 		self.triangles.remove(index_to_remove.unwrap());
 		true
 	}
@@ -424,7 +522,7 @@ impl Mesh {
 			e3_o.unwrap().borrow_mut().opposite = Some(e3.clone());
 		}
 		
-        self.triangles.push(Mesh::new_triangle(Some(e1.clone())));
+        self.triangles.push(Mesh::new_triangle(Some(e3.clone())));
 		
 		e1.borrow_mut().triangle = self.triangles.last().cloned();
 		e2.borrow_mut().triangle = self.triangles.last().cloned();
