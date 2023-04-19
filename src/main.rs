@@ -38,11 +38,11 @@ fn main() {
 
 	
 	  let mut img_mesh = Mesh::from_image(img);
-    println!("{:?}", img_mesh.tri_count());
+    println!("{:?}", img_mesh.triangle_count());
 	
     for _ in 0..num_collapses {
         let edge = img_mesh.get_random_edge();
-        let color_diff = Mesh::color_diff(&edge);
+        //let color_diff = Mesh::color_diff(&edge);
         // if color_diff == [0.0,0.0,0.0] {
             match img_mesh.collapse_edge(edge) {
                 Ok(i) => continue,
@@ -53,7 +53,7 @@ fn main() {
     }
 		
 	
-	for _ in 0..num_undos { img_mesh.undo_nearest_edge_collapse(0.0, 0.0); }
+	//for _ in 0..num_undos { img_mesh.undo_nearest_edge_collapse(0.0, 0.0); }
 	
     //println!("{:?}",img_mesh.tri_count());
 
