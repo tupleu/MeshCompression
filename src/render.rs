@@ -1,6 +1,7 @@
 use std::iter;
-mod mesh;
-pub use mesh::{Vertex, Edge, Triangle, Mesh};
+mod mesh_refactor;
+use mesh_refactor::{Vertex};
+pub use mesh_refactor::{VertexPointer, EdgePointer, TrianglePointer, Mesh};
 
 use wgpu::util::DeviceExt;
 use winit::{
@@ -96,13 +97,13 @@ impl Controller {
         if self.key_x_state == KeyState::Pressed {
             self.key_x_state = KeyState::Held;
             println!("Edge Collapse");
-            let initial_count = mesh.tri_count();
+            let initial_count = mesh.triangle_count();
 			let edge = mesh.get_random_edge();
             match mesh.collapse_edge(edge) {
                 Ok(i) => update = true,
                 Err(e) => println!("{:?}", e),
             }
-            println!("Triangle Count: {} -> {}\n", initial_count, mesh.tri_count());
+            println!("Triangle Count: {} -> {}\n", initial_count, mesh.triangle_count());
         }
         update
     }
