@@ -147,11 +147,15 @@ impl EdgePointer {
 			if !current_edge.has_opposite() { break; }
 			current_edge = current_edge.opposite().unwrap().next();
 			if current_edge.index() == self.index() { break; }
+
 			println!("1? {:?}", current_edge.vertex().index());
 		}
 		if !current_edge.has_opposite() { return results; }
 		current_edge = self.opposite().unwrap().next().next().clone();
 		/*
+
+		}
+
 		loop {
 			results.push(current_edge.clone());
 			if !current_edge.has_opposite() { break; }
@@ -257,7 +261,7 @@ impl Mesh {
 			};
 			let v = mesh.add_vertex([vx, vy*-1.0, 0.0], pixel.0);
 			v.set_anchor(anchor);
-			println!(" ~ {}", v.index());
+
 		}
 		println!("{}/{} vertices", mesh.vertices.len(), (width)*(height));
 		// Create triangles
@@ -302,7 +306,7 @@ impl Mesh {
 	
 	// Setters ////////////////////////////////////////////////////////////////////////////////
 	pub fn collapse_edge(&mut self, edge: EdgePointer) -> Result<(), String> {
-		println!("vert? {:?}", edge.vertex());
+
 		let (v1, v2) = (edge.vertex(), edge.next().next().vertex());
 		let (a1, a2) = (v1.anchor(), v2.anchor());
 		let (p1, p2) = (v1.position(), v2.position());
@@ -329,7 +333,7 @@ impl Mesh {
 		let new_color = average(v1.color(), v2.color());
 		
 		let v_new = self.add_vertex(new_position, new_color);
-		println!(" - {}", v_new.index());
+
 		v_new.set_state( if v1.state() > v2.state() { v1.state() + 1 } else { v2.state() + 1 } );
 		
 		// update all the edges with the new vertex
@@ -409,6 +413,7 @@ impl Mesh {
 		} 
 		
 		self.triangles.push(TrianglePointer::new(&e1, self.triangles.len()));
+
 		e1.set_triangle(self.triangles.last().unwrap());
 		e2.set_triangle(self.triangles.last().unwrap());
 		e3.set_triangle(self.triangles.last().unwrap());
@@ -422,7 +427,8 @@ impl Mesh {
 		
 		self.vertices.swap_remove(index);
 		
-		if index == self.vertices.len() { return true; }
+		if index == self.vertices.len() { return false; }
+
 		self.vertices[index].set_index(index as Index);
 		
 		true
@@ -449,6 +455,7 @@ impl Mesh {
 		
 		//self.triangles.swap_remove(index);
 		//self.triangles[index].set_index(index as Index);
+
 		// Rc::strong_count()
 		
 		true

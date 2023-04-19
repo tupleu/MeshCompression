@@ -1,6 +1,8 @@
 use std::iter;
 mod mesh_refactor;
-pub use mesh_refactor::{Vertex, Edge, Triangle, Mesh};
+
+use mesh_refactor::{Vertex};
+pub use mesh_refactor::{VertexPointer, EdgePointer, TrianglePointer, Mesh};
 
 use wgpu::util::DeviceExt;
 use winit::{
