@@ -5,7 +5,7 @@
 use std::env;
 
 mod render;
-use render::{Mesh, Vertex, run};
+use render::{Mesh, VertexPointer, run};
 
 use image::GenericImageView;
 
@@ -14,6 +14,14 @@ use rand;
 
 
 fn main() {
+	let v = VertexPointer::new([0.0,0.0,0.0],[0.0,0.0,0.0],0);
+	let v_copy = v.clone();
+	v.set_color([0.0,0.0,1.0]);
+	println!("{:?}",v_copy.color());
+	
+	
+	
+	
     let args: Vec<String> = env::args().collect();
     if args.len() < 2 {
         panic!("no image path supplied")
@@ -35,10 +43,13 @@ fn main() {
         0
     };
 	let img = image::open(img_path).unwrap();
-
+	let mut img_mesh = Mesh::from_image(img);
 	
-	  let mut img_mesh = Mesh::from_image(img);
-    println!("{:?}", img_mesh.tri_count());
+	
+
+	/*
+	  
+    
 	
     for _ in 0..num_collapses {
         let edge = img_mesh.get_random_edge();
@@ -51,9 +62,9 @@ fn main() {
             }
         // }
     }
-		
+		*/
 	
-	for _ in 0..num_undos { img_mesh.undo_nearest_edge_collapse(0.0, 0.0); }
+	//for _ in 0..num_undos { img_mesh.undo_nearest_edge_collapse(0.0, 0.0); }
 	
     //println!("{:?}",img_mesh.tri_count());
 
@@ -69,5 +80,8 @@ fn main() {
 	// screenshots/gif generation of refinement - Brian
 	// 
 	
+
 	pollster::block_on(run(img_mesh, wire));
+
+
 }
