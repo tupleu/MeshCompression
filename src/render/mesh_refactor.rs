@@ -35,7 +35,7 @@ fn average(p1: [f32; 3], p2: [f32; 3]) -> [f32; 3] {
 ///////////////////////////////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////////////////////
 #[repr(C)]
-#[derive(Copy, Clone, Default, Debug, bytemuck::Pod, bytemuck::Zeroable)]
+#[derive(Copy, Clone, Default, Debug, PartialEq, bytemuck::Pod, bytemuck::Zeroable)]
 pub struct Vertex {
     pub(crate) position: Vec3f,
 	pub(crate) color: Vec3f,
@@ -56,7 +56,7 @@ impl Vertex {
 	}
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct VertexPointer {
 	vertex: Rc<RefCell<Vertex>>,
 }
@@ -83,12 +83,12 @@ impl VertexPointer {
 	pub fn pos(&self) -> Vec3f { self.vertex.borrow().position }
 	pub fn position(&self) -> Vec3f { self.pos() }
 	pub fn color(&self) -> Vec3f { self.vertex.borrow().color }
-	
-	pub fn blend(&self, v: &VertexPointer) -> Vec3f {
-		let c1 = self.color();
-		let c2 = v.color();
-		[(c1[0] + c2[0]) / 2.0, (c1[1] + c2[1]) / 2.0, (c1[2] + c2[2]) / 2.0]
-	}
+	fn distance_to(&self, v: &VertexPointer) -> f32 {
+        let dx = f32::powf(self.position()[0] + v.position()[0], 2.0);
+        let dy = f32::powf(self.position()[1] + v.position()[1], 2.0);
+        let dz = f32::powf(self.position()[2] + v.position()[2], 2.0);
+        f32::sqrt(dx + dy + dz)
+    }
 	
 	// Setters ////////////////////////////////////////////////////////////////////////////////
 	pub fn set_color(&self, new_color: Vec3f) { self.vertex.borrow_mut().color = new_color; }
@@ -102,7 +102,7 @@ impl VertexPointer {
 // Edge
 ///////////////////////////////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////////////////////
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub struct Edge {
     vertex: VertexPointer,
     opposite: Option<EdgePointer>,
@@ -112,7 +112,7 @@ pub struct Edge {
 	index: Index, 
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct EdgePointer {
 	edge: Rc<RefCell<Edge>>,
 }
@@ -140,6 +140,7 @@ impl EdgePointer {
 	pub fn vertex(&self) -> VertexPointer { self.edge.borrow().vertex.clone() }
 	pub fn index(&self) -> Index { self.edge.borrow().index }
 	pub fn neighboors(&self) -> Vec<EdgePointer> {
+		let self_vi = self.vertex().index();
 		let mut results = Vec::new();
 		let mut current_edge = self.clone();
 		loop {
@@ -148,22 +149,22 @@ impl EdgePointer {
 			current_edge = current_edge.opposite().unwrap().next();
 			if current_edge.index() == self.index() { break; }
 
-			println!("1? {:?}", current_edge.vertex().index());
+			assert_eq!(current_edge.vertex().index(), self_vi);
 		}
+		current_edge = self.next().next();
 		if !current_edge.has_opposite() { return results; }
-		current_edge = self.opposite().unwrap().next().next().clone();
-		/*
-
-		}
+		current_edge = current_edge.opposite().unwrap();
 
 		loop {
 			results.push(current_edge.clone());
+			current_edge = current_edge.next().next();
 			if !current_edge.has_opposite() { break; }
-			current_edge = current_edge.opposite().unwrap().next();
+			current_edge = current_edge.opposite().unwrap();
 			if current_edge.index() == self.index() { break; }
-			println!("2? {:?}", current_edge.index());
+			
+			assert_eq!(current_edge.vertex().index(), self_vi);
 		}
-		*/
+		
 		results
 	}
 	
@@ -183,13 +184,13 @@ impl EdgePointer {
 // Triangle
 ///////////////////////////////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////////////////////
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub struct Triangle {
     edge: EdgePointer,
 	index: Index,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct TrianglePointer {
 	triangle: Rc<RefCell<Triangle>>,
 }
@@ -226,6 +227,7 @@ pub struct Mesh {
     edges: Vec<EdgePointer>,
     triangles: Vec<TrianglePointer>,
 	vertex_edge_map: HashMap<(Index, Index), EdgePointer>,
+	history: i32,
 }
 
 impl Mesh {
@@ -236,6 +238,7 @@ impl Mesh {
             edges: Vec::new(),
             triangles: Vec::new(),
 			vertex_edge_map: HashMap::new(),
+			history: 0,
         }
     }
 	
@@ -307,9 +310,30 @@ impl Mesh {
 	// Setters ////////////////////////////////////////////////////////////////////////////////
 	pub fn collapse_edge(&mut self, edge: EdgePointer) -> Result<(), String> {
 
-		let (v1, v2) = (edge.vertex(), edge.next().next().vertex());
+		let (v1, v2) = (edge.vertex(), edge.next().vertex());
 		let (a1, a2) = (v1.anchor(), v2.anchor());
 		let (p1, p2) = (v1.position(), v2.position());
+		
+		print!("!");
+		match (a1, a2) {
+			(ANCHOR_BOTH, ANCHOR_BOTH) 	=>	println!("1"),
+			(ANCHOR_BOTH, ANCHOR_NONE) 	=>	println!("2"),
+			(ANCHOR_NONE, ANCHOR_BOTH) 	=>	println!("3"),
+			(_, ANCHOR_BOTH) |
+				(ANCHOR_BOTH, _)		=>	println!("4"),
+			(ANCHOR_X, ANCHOR_Y) | 
+				(ANCHOR_Y, ANCHOR_X) 	=>	println!("5"),
+			(ANCHOR_X, ANCHOR_NONE) 	=>	println!("6"),
+			(ANCHOR_NONE, ANCHOR_X) 	=>	println!("7"),
+			(ANCHOR_Y, ANCHOR_NONE) 	=>	println!("8"),
+			(ANCHOR_NONE, ANCHOR_Y) 	=>	println!("9"), // 
+			(ANCHOR_X, ANCHOR_X) 
+				if p1[0] != p2[0] 		=>	println!("10"),
+			(ANCHOR_Y, ANCHOR_Y) 
+				if p1[1] != p2[1]		=>	println!("11"),
+			_ 							=> 	println!("12"),
+		};
+		
 		
 		let new_position = match (a1, a2) {
 			(ANCHOR_BOTH, ANCHOR_BOTH) 	=>	return Err("Invalid collapse".to_string()),
@@ -319,7 +343,7 @@ impl Mesh {
 				(ANCHOR_BOTH, _)		=>	return Err("Invalid collapse".to_string()),
 			(ANCHOR_X, ANCHOR_Y) | 
 				(ANCHOR_Y, ANCHOR_X) 	=>	return Err("Invalid collapse".to_string()),
-			(ANCHOR_X, ANCHOR_NONE) 	=>	[p1[0], (p1[1] + p2[1]) / 2.0, 0.0],
+			(ANCHOR_X, ANCHOR_NONE) 	=>	[p1[0], (p1[1] + p2[1]) / 2.0, 0.0],// wrong x snap, maybe?
 			(ANCHOR_NONE, ANCHOR_X) 	=>	[p2[0], (p1[1] + p2[1]) / 2.0, 0.0],
 			(ANCHOR_Y, ANCHOR_NONE) 	=>	[(p1[0] + p2[0]) / 2.0, p1[1], 0.0],
 			(ANCHOR_NONE, ANCHOR_Y) 	=>	[(p1[0] + p2[0]) / 2.0, p2[1], 0.0],
@@ -330,11 +354,18 @@ impl Mesh {
 			_ 							=> 	average(p1, p2),
 		};
 		
+		//println!("{:?} {:?} {:?}", p1, p2, new_position);
+		
 		let new_color = average(v1.color(), v2.color());
 		
 		let v_new = self.add_vertex(new_position, new_color);
-
 		v_new.set_state( if v1.state() > v2.state() { v1.state() + 1 } else { v2.state() + 1 } );
+		v_new.set_anchor(match (a1, a2) {
+			(a, b) if a == b			=> 	a,
+			(a, b) if b == ANCHOR_NONE 	=>	a,
+			(a, b) if a == ANCHOR_NONE 	=>	b,
+			_ 							=>  panic!("How did you get here cotton eyed joe?"),
+		});
 		
 		// update all the edges with the new vertex
 		for e in &mut edge.neighboors() {
@@ -342,12 +373,6 @@ impl Mesh {
 		}
 		for e in &mut edge.next().neighboors() {
 			e.set_vertex(&v_new);
-		}
-		
-		// remove the triangles
-		self.remove_triangle(&edge.triangle());
-		if edge.has_opposite() {
-			self.remove_triangle(&edge.opposite().unwrap().triangle());
 		}
 		
 		// reconnect the opposites
@@ -366,6 +391,20 @@ impl Mesh {
 				op_edge.next().next().opposite().unwrap().set_opposite(&op_edge.next().opposite())
 			}
 		}
+		
+		// remove the triangles
+		if edge.has_opposite() {
+			assert_eq!(self.remove_triangle(edge.opposite().unwrap().triangle()), true);
+		}
+		assert_eq!(self.remove_triangle(edge.triangle()), true);
+		
+		
+		// remove the verticies
+		assert_eq!(self.remove_vertex(v1), true);
+		assert_eq!(self.remove_vertex(v2), true);
+		self.history += 1;
+		println!("{} ! {}", self.edges.len(), self.history);
+		assert_eq!(self.vertices.len() as i32, 1024 - self.history);
 		// Return that we finished properly
 		Ok(())
 	}
@@ -383,6 +422,10 @@ impl Mesh {
 		let v1 = self.vertices[i1 as usize].clone();
 		let v2 = self.vertices[i2 as usize].clone();
 		let v3 = self.vertices[i3 as usize].clone();
+		
+		assert_eq!(self.find_edge(i1, i2), None);
+		assert_eq!(self.find_edge(i2, i3), None);
+		assert_eq!(self.find_edge(i3, i1), None);
 		
 		let mut e1 = self.add_edge(&v1, &v2);
 		let mut e2 = self.add_edge(&v2, &v3);
@@ -419,42 +462,44 @@ impl Mesh {
 		e3.set_triangle(self.triangles.last().unwrap());
 	}
 	
-	fn remove_vertex(&mut self, vertex: &VertexPointer) -> bool {
+	fn remove_vertex(&mut self, vertex: VertexPointer) -> bool {
 		let index = vertex.index() as usize;
 		println!("{} {} {}", vertex.index(), index, self.vertices.len());
-		if index >= self.vertices.len().try_into().unwrap() { return false; }
+		if index >= self.vertices.len() { return false; }
 		
 		
 		self.vertices.swap_remove(index);
 		
-		if index == self.vertices.len() { return false; }
-
+		if index == self.vertices.len() { return true; }
+		assert_eq!(self.vertices[index].index() as usize, self.vertices.len());
 		self.vertices[index].set_index(index as Index);
 		
 		true
 	}
-	fn remove_edge(&mut self, edge: &EdgePointer) -> bool {
+	fn remove_edge(&mut self, edge: EdgePointer) -> bool {
 		let index = edge.index() as usize;
-		if index > self.edges.len().try_into().unwrap() { return false; }
+		if index > self.edges.len() { return false; }
 		
 		self.edges.swap_remove(index);
+		if index == self.edges.len() { return true; }
 		self.edges[index].set_index(index as Index);
 		
 		true
 	}
-	fn remove_triangle(&mut self, triangle: &TrianglePointer) -> bool {
+	fn remove_triangle(&mut self, triangle: TrianglePointer) -> bool {
 		let index = triangle.index() as usize;
 		if index > self.triangles.len() { return false; }
 		
-		//self.remove_vertex(&triangle.edge().vertex());
+		
 		//self.remove_vertex(&triangle.edge().next().vertex());
 		
-		//self.remove_edge(&triangle.edge().next().next());
-		//self.remove_edge(&triangle.edge().next());
-		//self.remove_edge(&triangle.edge());
+		assert_eq!(self.remove_edge(triangle.edge().next().next()), true);
+		assert_eq!(self.remove_edge(triangle.edge().next()), true);
+		assert_eq!(self.remove_edge(triangle.edge()), true);
 		
-		//self.triangles.swap_remove(index);
-		//self.triangles[index].set_index(index as Index);
+		self.triangles.swap_remove(index);
+		if index == self.triangles.len() { return true; }
+		self.triangles[index].set_index(index as Index);
 
 		// Rc::strong_count()
 		

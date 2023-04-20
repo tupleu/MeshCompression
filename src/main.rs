@@ -49,7 +49,7 @@ fn main() {
     println!("{:?}", img_mesh.triangle_count());
 	
 
-	/*
+	
 	  
     
 	
@@ -59,12 +59,12 @@ fn main() {
         // if color_diff == [0.0,0.0,0.0] {
             match img_mesh.collapse_edge(edge) {
                 Ok(i) => continue,
-                Err(e) => continue,//println!("{:?}", e),
+                Err(e) => println!("{:?}", e),
                 // Err(e) => (),
             }
         // }
     }
-		*/
+		
 	
 	//for _ in 0..num_undos { img_mesh.undo_nearest_edge_collapse(0.0, 0.0); }
 	
