@@ -1,7 +1,7 @@
 use std::rc::{Rc, Weak};
 use std::cell::RefCell;
 use image::DynamicImage;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use rand::Rng;
 use std::cmp;
 
@@ -27,7 +27,28 @@ fn average(p1: [f32; 3], p2: [f32; 3]) -> [f32; 3] {
 	[mid_x, mid_y, mid_z]
 }
 
+fn distance(p1: [f32; 3], p2: [f32; 3]) -> f32 {
+	let dx = f32::powf(p1[0] - p2[0], 2.0);
+	let dy = f32::powf(p1[1] - p2[1], 2.0);
+	let dz = f32::powf(p1[2] - p2[2], 2.0);
+	//println!("{:?} {:?}, {} {}", p1, p2, dx, dy);
+	f32::sqrt(dx + dy + dz)
+}
 
+// returns (m, b)
+fn line_equation(edge: &EdgePointer) -> (f32, f32) {
+	let p1 = edge.vertex().pos();
+	let p2 = edge.next().vertex().pos();
+	let m = (p2[1] - p1[1]) / (p2[0] - p1[0]);
+	(m, p1[1] - (m * p1[0]))
+}
+
+fn in_range(i: f32, r: (f32, f32)) -> bool {
+	let r1 = if r.0 > r.1 { r.1 } else { r.0 };
+	let r2 = if r.0 > r.1 { r.0 } else { r.1 };
+	if i > r1 + f32::EPSILON && i < r2 - f32::EPSILON { return true; }
+	false
+}
 
 ///////////////////////////////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -71,7 +92,7 @@ impl VertexPointer {
 					color,
 					index: index.try_into().unwrap(),
 					anchor: ANCHOR_NONE,
-					state: 1,
+					state: 0,
 				}))
 		}
     }
@@ -83,12 +104,7 @@ impl VertexPointer {
 	pub fn pos(&self) -> Vec3f { self.vertex.borrow().position }
 	pub fn position(&self) -> Vec3f { self.pos() }
 	pub fn color(&self) -> Vec3f { self.vertex.borrow().color }
-	fn distance_to(&self, v: &VertexPointer) -> f32 {
-        let dx = f32::powf(self.position()[0] + v.position()[0], 2.0);
-        let dy = f32::powf(self.position()[1] + v.position()[1], 2.0);
-        let dz = f32::powf(self.position()[2] + v.position()[2], 2.0);
-        f32::sqrt(dx + dy + dz)
-    }
+	fn distance_to(&self, v: &VertexPointer) -> f32 { distance(self.pos(), v.pos()) }
 	
 	// Setters ////////////////////////////////////////////////////////////////////////////////
 	pub fn set_color(&self, new_color: Vec3f) { self.vertex.borrow_mut().color = new_color; }
@@ -136,9 +152,29 @@ impl EdgePointer {
 	pub fn next(&self) -> EdgePointer { self.edge.borrow().next.as_ref().unwrap().clone() }
 	pub fn triangle(&self) -> TrianglePointer { self.edge.borrow().triangle.as_ref().unwrap().clone() }
 	pub fn opposite(&self) -> Option<EdgePointer> { self.edge.borrow().opposite.clone() }
+	pub fn length(&self) -> f32 { self.vertex().distance_to(&self.next().vertex()) }
 	pub fn has_opposite(&self) -> bool { self.edge.borrow().opposite.is_some() }
 	pub fn vertex(&self) -> VertexPointer { self.edge.borrow().vertex.clone() }
 	pub fn index(&self) -> Index { self.edge.borrow().index }
+	pub fn intersects(&self, edge: &EdgePointer) -> bool {
+		
+		let r1 = (self.vertex().pos()[0], self.next().vertex().pos()[0]);
+		let r2 = (edge.vertex().pos()[0], edge.next().vertex().pos()[0]);
+		let (m1, b1) = line_equation(self);
+		let (m2, b2) = line_equation(edge);
+		if f32::abs(m2 - m1) < f32::EPSILON { return false; }
+		
+		let x = (b2 - b1) / (m1 - m2);
+		let y = (x * m1) + b1;
+		if in_range(x, r1) && in_range(x, r2) {
+			
+			//println!("{} in {:?} and {} in {:?}", x, r1, x, r2);
+			//println!("y = {}x + {}", m1, b1);
+			//println!("y = {}x + {}", m2, b2);
+			return true;			
+		}
+		false 
+	}
 	pub fn neighboors(&self) -> Vec<EdgePointer> {
 		let self_vi = self.vertex().index();
 		let mut results = Vec::new();
@@ -148,26 +184,23 @@ impl EdgePointer {
 			if !current_edge.has_opposite() { break; }
 			current_edge = current_edge.opposite().unwrap().next();
 			if current_edge.index() == self.index() { break; }
-
 			assert_eq!(current_edge.vertex().index(), self_vi);
 		}
 		current_edge = self.next().next();
 		if !current_edge.has_opposite() { return results; }
 		current_edge = current_edge.opposite().unwrap();
-
 		loop {
 			results.push(current_edge.clone());
 			current_edge = current_edge.next().next();
 			if !current_edge.has_opposite() { break; }
 			current_edge = current_edge.opposite().unwrap();
 			if current_edge.index() == self.index() { break; }
-			
 			assert_eq!(current_edge.vertex().index(), self_vi);
 		}
-		
 		results
 	}
 	
+
 	// Setters ////////////////////////////////////////////////////////////////////////////////
 	pub fn set_index(&mut self, new_index: Index) { self.edge.borrow_mut().index = new_index; }
 	pub fn set_vertex(&mut self, new_vertex: &VertexPointer) { self.edge.borrow_mut().vertex = new_vertex.clone(); }
@@ -188,6 +221,8 @@ impl EdgePointer {
 pub struct Triangle {
     edge: EdgePointer,
 	index: Index,
+	centroid: (f32, f32),
+	radius: f32,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -203,6 +238,8 @@ impl TrianglePointer {
 				Rc::new(RefCell::new(Triangle {
 					index: index as Index,
 					edge: edge.clone(),
+					centroid: (0.0, 0.0),
+					radius: 0.0,
 				}))
         }
     }
@@ -210,6 +247,64 @@ impl TrianglePointer {
 	// Getters ////////////////////////////////////////////////////////////////////////////////
 	pub fn edge(&self) -> EdgePointer { self.triangle.borrow().edge.clone() }
 	pub fn index(&self) -> Index { self.triangle.borrow().index }
+	pub fn edges(&self) -> [EdgePointer; 3] {
+		[self.edge(), self.edge().next(), self.edge().next().next()]
+	}
+	pub fn area(&self) -> f32 {
+		let p1 = self.edge().vertex().pos();
+		let p2 = self.edge().next().vertex().pos();
+		let p3 = self.edge().next().next().vertex().pos();
+		0.5 * (
+			(p1[0] * (p2[1] - p3[1])) +
+			(p2[0] * (p3[1] - p1[1])) +
+			(p3[0] * (p1[1] - p2[1]))
+		)
+	}
+	pub fn circumscribed_radius(&self) -> f32 {
+		self.triangle.borrow().radius
+	}
+	pub fn centroid(&self) -> Vec3f {
+		let c = self.triangle.borrow().centroid;
+		[c.0, c.1, 0.0]
+	}
+	pub fn update(&mut self) {
+		self.update_centroid();
+		self.update_circumscribed_radius();
+	}
+	pub fn update_centroid(&mut self) {
+		let v1 = self.triangle.borrow().edge.vertex().pos();
+		let v2 = self.triangle.borrow().edge.next().vertex().pos();
+		let v3 = self.triangle.borrow().edge.next().next().vertex().pos();
+		let sum_x = v1[0] + v2[0] + v3[0];
+		let sum_y = v1[1] + v2[1] + v3[1];
+		self.triangle.borrow_mut().centroid = (sum_x / 3.0, sum_y / 3.0);
+	}
+	pub fn update_circumscribed_radius(&mut self) {
+		
+		self.triangle.borrow_mut().radius = (self.edge().length() * self.edge().next().length() * self.edge().next().next().length()) / (4.0 * self.area());
+		//println!("area = {}", self.edge().length());
+	}
+	pub fn overlaps(&self, triangle: &TrianglePointer) -> bool {
+		// do a quick check for circular overlap
+		
+		let d = distance(self.centroid(), triangle.centroid());
+		if d > self.circumscribed_radius() + triangle.circumscribed_radius() {
+			//println!("d = {}", d);
+			//println!("r = {}", self.circumscribed_radius());
+			return false;
+		}
+		
+		// Check each of the edges
+		for edge1 in self.edges() {
+            for edge2 in triangle.edges() {
+                if edge1.intersects(&edge2) {
+					//println!("uhh");
+                    return true;
+                }
+            }
+        }
+		false
+	}
 	
 	// Setters ////////////////////////////////////////////////////////////////////////////////
 	pub fn set_index(&self, new_index: Index) { self.triangle.borrow_mut().index = new_index }
@@ -227,7 +322,7 @@ pub struct Mesh {
     edges: Vec<EdgePointer>,
     triangles: Vec<TrianglePointer>,
 	vertex_edge_map: HashMap<(Index, Index), EdgePointer>,
-	history: i32,
+	history: u16,
 }
 
 impl Mesh {
@@ -264,7 +359,7 @@ impl Mesh {
 			};
 			let v = mesh.add_vertex([vx, vy*-1.0, 0.0], pixel.0);
 			v.set_anchor(anchor);
-
+		
 		}
 		println!("{}/{} vertices", mesh.vertices.len(), (width)*(height));
 		// Create triangles
@@ -285,7 +380,16 @@ impl Mesh {
 	
 	// Getters ////////////////////////////////////////////////////////////////////////////////
 	pub fn triangle_count(&self) -> usize { self.triangles.len() }
-	pub fn get_random_edge(&self) -> EdgePointer { self.edges[rand::thread_rng().gen_range(0..self.edges.len()-1)].clone() }
+	pub fn get_random_edge(&self) -> EdgePointer { 
+		let mut i = rand::thread_rng().gen_range(0..self.edges.len()-1);
+		/*loop {
+			if self.edges[i].vertex().state() == self.history { break; }
+			i += 1;
+			if i == self.edges.len() { i = 0; }
+			println!("{} {} {}", i, self.edges[i].vertex().state(), self.history);
+		}*/
+		self.edges[i].clone()
+	}
 	pub fn extract_vertices(&self) -> Vec<Vertex> {
 		let mut vertices = Vec::new();
 		for vertex in &self.vertices {
@@ -307,51 +411,21 @@ impl Mesh {
 		self.vertex_edge_map.get(&(start, end)).cloned()
 	}
 	
-	// Setters ////////////////////////////////////////////////////////////////////////////////
+	// Setters ////////////////////////////////////////////////////////////////////////////////	
 	pub fn collapse_edge(&mut self, edge: EdgePointer) -> Result<(), String> {
-
+		
 		let (v1, v2) = (edge.vertex(), edge.next().vertex());
+		//if v1.state() != v2.state() { return Err("Invalid collapse".to_string()); }
+		
 		let (a1, a2) = (v1.anchor(), v2.anchor());
 		let (p1, p2) = (v1.position(), v2.position());
 		
-		print!("!");
-		match (a1, a2) {
-			(ANCHOR_BOTH, ANCHOR_BOTH) 	=>	println!("1"),
-			(ANCHOR_BOTH, ANCHOR_NONE) 	=>	println!("2"),
-			(ANCHOR_NONE, ANCHOR_BOTH) 	=>	println!("3"),
-			(_, ANCHOR_BOTH) |
-				(ANCHOR_BOTH, _)		=>	println!("4"),
-			(ANCHOR_X, ANCHOR_Y) | 
-				(ANCHOR_Y, ANCHOR_X) 	=>	println!("5"),
-			(ANCHOR_X, ANCHOR_NONE) 	=>	println!("6"),
-			(ANCHOR_NONE, ANCHOR_X) 	=>	println!("7"),
-			(ANCHOR_Y, ANCHOR_NONE) 	=>	println!("8"),
-			(ANCHOR_NONE, ANCHOR_Y) 	=>	println!("9"), // 
-			(ANCHOR_X, ANCHOR_X) 
-				if p1[0] != p2[0] 		=>	println!("10"),
-			(ANCHOR_Y, ANCHOR_Y) 
-				if p1[1] != p2[1]		=>	println!("11"),
-			_ 							=> 	println!("12"),
-		};
-		
 		
 		let new_position = match (a1, a2) {
-			(ANCHOR_BOTH, ANCHOR_BOTH) 	=>	return Err("Invalid collapse".to_string()),
+			(ANCHOR_NONE, ANCHOR_NONE) 	=>	average(p1, p2),
 			(ANCHOR_BOTH, ANCHOR_NONE) 	=>	p1,
 			(ANCHOR_NONE, ANCHOR_BOTH) 	=>	p2,
-			(_, ANCHOR_BOTH) |
-				(ANCHOR_BOTH, _)		=>	return Err("Invalid collapse".to_string()),
-			(ANCHOR_X, ANCHOR_Y) | 
-				(ANCHOR_Y, ANCHOR_X) 	=>	return Err("Invalid collapse".to_string()),
-			(ANCHOR_X, ANCHOR_NONE) 	=>	[p1[0], (p1[1] + p2[1]) / 2.0, 0.0],// wrong x snap, maybe?
-			(ANCHOR_NONE, ANCHOR_X) 	=>	[p2[0], (p1[1] + p2[1]) / 2.0, 0.0],
-			(ANCHOR_Y, ANCHOR_NONE) 	=>	[(p1[0] + p2[0]) / 2.0, p1[1], 0.0],
-			(ANCHOR_NONE, ANCHOR_Y) 	=>	[(p1[0] + p2[0]) / 2.0, p2[1], 0.0],
-			(ANCHOR_X, ANCHOR_X) 
-				if p1[0] != p2[0] 		=>	return Err("Invalid collapse".to_string()),
-			(ANCHOR_Y, ANCHOR_Y) 
-				if p1[1] != p2[1]		=>	return Err("Invalid collapse".to_string()),
-			_ 							=> 	average(p1, p2),
+			_							=>	return Err("Invalid collapse".to_string()),
 		};
 		
 		//println!("{:?} {:?} {:?}", p1, p2, new_position);
@@ -367,18 +441,58 @@ impl Mesh {
 			_ 							=>  panic!("How did you get here cotton eyed joe?"),
 		});
 		
-		// update all the edges with the new vertex
+		// update all the edges with the new vertex and collect all triangles that will be updated
+		let mut triangles: HashSet<Index> = HashSet::new();
+		let mut edges1 = Vec::new();
+		let mut edges2 = Vec::new();
 		for e in &mut edge.neighboors() {
 			e.set_vertex(&v_new);
+			e.triangle().update();
+			triangles.insert(e.triangle().index());
+			edges1.push(e.index());
 		}
 		for e in &mut edge.next().neighboors() {
 			e.set_vertex(&v_new);
+			e.triangle().update();
+			triangles.insert(e.triangle().index());
+			edges2.push(e.index());
+		}
+	
+		// check if this results in the updated triangles overlaping any other triangles
+		let t1 = edge.triangle().index();
+		let t2 = if edge.has_opposite() { edge.opposite().unwrap().triangle().index() } else { t1 };
+		assert!(triangles.remove(&t1));
+		if edge.has_opposite() {
+			assert!(triangles.remove(&t2)); // assertion fail
+		}
+		for modified_triangle_idx in &triangles {
+			let modified_triangle = &self.triangles[*modified_triangle_idx as usize];
+			for triangle in &self.triangles {
+				if triangles.contains(&triangle.index()) { continue; }
+				if triangle.index() == t1 { continue; }
+				if triangle.index() == t2 { continue; }
+				if modified_triangle.overlaps(&triangle) {
+					//println!("{}", triangle.index());
+					//println!("{}", modified_triangle_idx);
+					//return Err("Invalid collapse".to_string());
+					// OH NO REVERT THE CHANGES AND PRETEND THIS NEVER HAPPENED
+					for e in edges1 {
+						self.edges[e as usize].set_vertex(&v1);
+					}
+					for e in edges2 {
+						self.edges[e as usize].set_vertex(&v2);
+					}
+					self.remove_vertex(v_new);
+					return Err("Invalid collapse".to_string());
+				}
+			}
 		}
 		
 		// reconnect the opposites
 		if edge.next().has_opposite() {
 			edge.next().opposite().unwrap().set_opposite(&edge.next().next().opposite())
 		}
+		
 		if edge.next().next().has_opposite() {
 			edge.next().next().opposite().unwrap().set_opposite(&edge.next().opposite())
 		}
@@ -392,6 +506,7 @@ impl Mesh {
 			}
 		}
 		
+		
 		// remove the triangles
 		if edge.has_opposite() {
 			assert_eq!(self.remove_triangle(edge.opposite().unwrap().triangle()), true);
@@ -403,8 +518,8 @@ impl Mesh {
 		assert_eq!(self.remove_vertex(v1), true);
 		assert_eq!(self.remove_vertex(v2), true);
 		self.history += 1;
-		println!("{} ! {}", self.edges.len(), self.history);
-		assert_eq!(self.vertices.len() as i32, 1024 - self.history);
+		//println!("{} ! {}", self.edges.len(), self.history);
+		assert_eq!(self.vertices.len() as u16, 1024 - self.history);
 		// Return that we finished properly
 		Ok(())
 	}
@@ -456,7 +571,8 @@ impl Mesh {
 		} 
 		
 		self.triangles.push(TrianglePointer::new(&e1, self.triangles.len()));
-
+		self.triangles.last_mut().unwrap().update();
+		
 		e1.set_triangle(self.triangles.last().unwrap());
 		e2.set_triangle(self.triangles.last().unwrap());
 		e3.set_triangle(self.triangles.last().unwrap());
@@ -464,7 +580,7 @@ impl Mesh {
 	
 	fn remove_vertex(&mut self, vertex: VertexPointer) -> bool {
 		let index = vertex.index() as usize;
-		println!("{} {} {}", vertex.index(), index, self.vertices.len());
+		//println!("{} {} {}", vertex.index(), index, self.vertices.len());
 		if index >= self.vertices.len() { return false; }
 		
 		
