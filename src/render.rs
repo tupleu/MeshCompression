@@ -97,15 +97,19 @@ impl Controller {
         let mut update = false;
         if self.key_x_state == KeyState::Pressed {
             self.key_x_state = KeyState::Held;
-            for _ in 0..10 {
-                let initial_count = mesh.triangle_count();
-                println!("Edge Collapse");
+            println!("Edge Collapse");
+            let initial_count = mesh.triangle_count();
+            let target = ((initial_count as f32)*0.9).round() as usize;
+            while mesh.triangle_count() > target {
                 match mesh.collapse_best_edge() {
                     Ok(i) => update = true,
-                    Err(e) => println!("{:?}", e),
+                    Err(e) => {
+                        println!("{:?}", e);
+                        break;
+                    },
                 }
-                println!("Triangle Count: {} -> {}\n", initial_count, mesh.triangle_count());
             }
+            println!("Triangle Count: {} -> {}\n", initial_count, mesh.triangle_count());
         }
         update
     }
