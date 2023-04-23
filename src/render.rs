@@ -1,7 +1,7 @@
 use std::iter;
 mod mesh_refactor;
 
-use mesh_refactor::{Vertex};
+use mesh_refactor::Vertex;
 pub use mesh_refactor::{VertexPointer, EdgePointer, TrianglePointer, Mesh};
 
 use wgpu::util::DeviceExt;
@@ -99,10 +99,15 @@ impl Controller {
             self.key_x_state = KeyState::Held;
             println!("Edge Collapse");
             let initial_count = mesh.triangle_count();
-			let edge = mesh.get_random_edge();
-            match mesh.collapse_edge(edge) {
-                Ok(i) => update = true,
-                Err(e) => println!("{:?}", e),
+            let target = ((initial_count as f32)*0.9).round() as usize;
+            while mesh.triangle_count() > target {
+                match mesh.collapse_best_edge() {
+                    Ok(i) => update = true,
+                    Err(e) => {
+                        println!("{:?}", e);
+                        break;
+                    },
+                }
             }
             println!("Triangle Count: {} -> {}\n", initial_count, mesh.triangle_count());
         }

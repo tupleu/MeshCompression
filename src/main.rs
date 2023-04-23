@@ -35,7 +35,7 @@ fn main() {
 	let num_collapses = if args.len() > 3{
         args[3].parse::<usize>().unwrap()
     } else {
-        1
+        0
     };
 	let num_undos = if args.len() > 4{
         args[4].parse::<usize>().unwrap()
@@ -54,14 +54,13 @@ fn main() {
     
 	
     for _ in 0..num_collapses {
-        let edge = img_mesh.get_random_edge();
         //let color_diff = Mesh::color_diff(&edge);
         // if color_diff == [0.0,0.0,0.0] {
-            match img_mesh.collapse_edge(edge) {
-                Ok(i) => continue,
-                Err(e) => println!("{:?}", e),
-                // Err(e) => (),
-            }
+        match img_mesh.collapse_best_edge() {
+            Ok(i) => continue,
+            Err(e) => println!("{:?}", e),
+            // Err(e) => (),
+        }
         // }
     }
 		

@@ -1,9 +1,9 @@
 use std::rc::{Rc, Weak};
 use std::cell::RefCell;
 use image::DynamicImage;
-use std::collections::{HashMap, HashSet};
+use std::collections::{HashMap, HashSet, BTreeSet, BinaryHeap};
 use rand::Rng;
-use std::cmp;
+use std::cmp::{self, Reverse};
 
 type Index = u32;
 type Vec3f = [f32; 3];
@@ -128,7 +128,7 @@ pub struct Edge {
 	index: Index, 
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone)]
 pub struct EdgePointer {
 	edge: Rc<RefCell<Edge>>,
 }
@@ -139,11 +139,11 @@ impl EdgePointer {
         Self {  
 			edge: 
 				Rc::new(RefCell::new(Edge {
-					index: index.try_into().unwrap(),
 					vertex: vertex.clone(),
 					opposite: None,
 					next: None,
 					triangle: None,
+					index: index.try_into().unwrap(),
 				}))
         }
     }
@@ -170,7 +170,7 @@ impl EdgePointer {
 		}
 		false 
 	}
-	pub fn neighboors(&self) -> Vec<EdgePointer> {
+	pub fn neighbors(&self) -> Vec<EdgePointer> {
 		let self_vi = self.vertex().index();
 		let mut results = Vec::new();
 		let mut current_edge = self.clone();
@@ -194,6 +194,12 @@ impl EdgePointer {
 		}
 		results
 	}
+    pub fn energy(&self) -> f32 {
+        let length: f32 = self.length();
+        assert!(length != 0_f32);
+        let color_diff: f32 = distance(self.vertex().color(), self.next().vertex().color()) / length;
+        length + color_diff
+    }
 	
 
 	// Setters ////////////////////////////////////////////////////////////////////////////////
@@ -204,6 +210,24 @@ impl EdgePointer {
 	pub fn set_opposite_some(&mut self, new_opposite: &EdgePointer) { self.set_opposite(&Some(new_opposite.clone())); }
 	pub fn set_opposite(&mut self, new_opposite: &Option<EdgePointer>) { self.edge.borrow_mut().opposite = new_opposite.clone(); }
 }
+
+impl Ord for EdgePointer {
+    fn cmp(&self, other: &Self) -> cmp::Ordering {
+       self.energy().total_cmp(&other.energy()) 
+    }
+}
+impl PartialOrd for EdgePointer {
+    fn partial_cmp(&self, other: &Self) -> Option<cmp::Ordering> {
+        Some(self.cmp(other))
+    }
+}
+impl PartialEq for EdgePointer {
+    fn eq(&self, other: &Self) -> bool {
+        self.energy() == other.energy()
+    }
+}
+impl Eq for EdgePointer {}
+
 
 
 
@@ -316,6 +340,7 @@ pub struct Mesh {
     vertices: Vec<VertexPointer>,
     edges: Vec<EdgePointer>,
     triangles: Vec<TrianglePointer>,
+	energy_set: BTreeSet<EdgePointer>,
 	vertex_edge_map: HashMap<(Index, Index), EdgePointer>,
 	history: Vec<(Index, Index, Index, (f32, f32), (f32, f32))>, // vl, vr, vs, (dx dy), (dx, dy)
 }
@@ -327,6 +352,7 @@ impl Mesh {
             vertices: Vec::new(),
             edges: Vec::new(),
             triangles: Vec::new(),
+			energy_set: BTreeSet::new(),
 			vertex_edge_map: HashMap::new(),
 			history: Vec::new(), 
         }
@@ -379,6 +405,20 @@ impl Mesh {
 		let i = rand::thread_rng().gen_range(0..self.edges.len()-1);
 		self.edges[i].clone()
 	}
+	pub fn get_best_edge(&self) -> EdgePointer { 
+        let mut index:usize = 0;
+        let mut min: f32 = self.edges[0].energy();
+        for (i,edge) in self.edges.iter().enumerate() {
+            let energy = edge.energy();
+            println!("{:?}", energy);
+            if energy < min {
+                min = energy;
+                index = i;
+            }
+        }
+
+		self.edges[index].clone()
+	}
 	pub fn extract_vertices(&self) -> Vec<Vertex> {
 		let mut vertices = Vec::new();
 		for vertex in &self.vertices {
@@ -420,10 +460,10 @@ impl Mesh {
 		
 		let new_state = if s1 > s2 { s1 + 1 } else { s2 + 1 };
 		let new_anchor = match (a1, a2) {
-			(a, b) if a == b			=> 	a,
-			(a, b) if b == ANCHOR_NONE 	=>	a,
-			(a, b) if a == ANCHOR_NONE 	=>	b,
-			_ 							=>  panic!("How did you get here cotton eyed joe?"),
+			(a, b) if a == b	=> 	a,
+			(a, ANCHOR_NONE)    =>	a,
+			(ANCHOR_NONE, b)    =>	b,
+			_ 					=>  panic!("How did you get here cotton eyed joe?"),
 		};
 		
 		// update the vertex
@@ -436,13 +476,13 @@ impl Mesh {
 		let mut triangles: HashSet<Index> = HashSet::new();
 		let mut edges = Vec::new();
 		
-		for e in &mut edge.neighboors() {
+		for e in &mut edge.neighbors() {
 			//e.set_vertex(&v_new);
 			e.set_vertex(&v2);
 			triangles.insert(e.triangle().index());
 			edges.push(e.index());
 		}
-		for e in &mut edge.next().neighboors() {
+		for e in &mut edge.next().neighbors() {
 			//e.set_vertex(&v_new);
 			triangles.insert(e.triangle().index());
 			//edges2.push(e.index());
@@ -512,12 +552,24 @@ impl Mesh {
 		// Return that we finished properly
 		Ok(())
 	}
+    pub fn collapse_best_edge(&mut self) -> Result<(), String> {
+        let mut edge_pq: BinaryHeap<_> = self.edges.iter().map(|x| x.clone()).map(Reverse).collect();
+        while let Some(Reverse(edge)) = edge_pq.pop() {
+            match self.collapse_edge(edge) {
+                Ok(()) => return Ok(()),
+                Err(e) => continue,
+            }
+        }
+        Err("no valid collapses".to_string())
+    }
 	
 	fn add_vertex(&mut self, pos: Vec3f, color: Vec3f) -> VertexPointer { 
 		self.vertices.push(VertexPointer::new(pos, color, self.vertices.len()));
 		self.vertices.last().unwrap().clone()
 	}
-	fn add_edge(&mut self, start: &VertexPointer, end: &VertexPointer) -> EdgePointer {		self.edges.push(EdgePointer::new(start, self.edges.len()));
+	fn add_edge(&mut self, start: &VertexPointer, end: &VertexPointer) -> EdgePointer {
+        self.edges.push(EdgePointer::new(start, self.edges.len()));
+        // self.energy_set.insert(self.edges.last().unwrap().clone());
 		self.vertex_edge_map.insert((start.index(), end.index()), self.edges.last().unwrap().clone());
 		self.edges.last().unwrap().clone()
 	}
