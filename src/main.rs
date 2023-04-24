@@ -43,16 +43,11 @@ fn main() {
         0
     };
 	let img = image::open(img_path).unwrap();
-	let mut img_mesh = Mesh::from_image(img);
+	let mut img_mesh = Mesh::from_image4(img);
 	
 
     println!("{:?}", img_mesh.triangle_count());
-	
 
-	
-	  
-    
-	
     for _ in 0..num_collapses {
         //let color_diff = Mesh::color_diff(&edge);
         // if color_diff == [0.0,0.0,0.0] {
@@ -83,6 +78,4 @@ fn main() {
 	
 
 	pollster::block_on(run(img_mesh, wire));
-
-
 }

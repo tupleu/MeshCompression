@@ -45,6 +45,7 @@ enum KeyState {
 
 struct Controller {
     key_x_state: KeyState,
+    key_s_state: KeyState,
     key_w_state: KeyState,
 }
 
@@ -52,6 +53,7 @@ impl Controller {
     fn new() -> Self {
         Self {
             key_x_state: KeyState::Released,
+            key_s_state: KeyState::Released,
             key_w_state: KeyState::Released,
         }
     }
@@ -74,6 +76,15 @@ impl Controller {
                         }
                         if !is_pressed && self.key_x_state == KeyState::Held {
                             self.key_x_state = KeyState::Released
+                        }
+                        true
+                    },
+                    VirtualKeyCode::S => {
+                        if is_pressed && self.key_s_state == KeyState::Released {
+                            self.key_s_state = KeyState::Pressed
+                        }
+                        if !is_pressed && self.key_s_state == KeyState::Held {
+                            self.key_s_state = KeyState::Released
                         }
                         true
                     },
@@ -100,7 +111,7 @@ impl Controller {
             println!("Edge Collapse");
             let initial_count = mesh.triangle_count();
             let target = ((initial_count as f32)*0.9).round() as usize;
-            while mesh.triangle_count() > target {
+            while mesh.triangle_count() >= target {
                 match mesh.collapse_best_edge() {
                     Ok(i) => update = true,
                     Err(e) => {
@@ -108,6 +119,18 @@ impl Controller {
                         break;
                     },
                 }
+            }
+            println!("Triangle Count: {} -> {}\n", initial_count, mesh.triangle_count());
+        }
+        if self.key_s_state == KeyState::Pressed {
+            self.key_s_state = KeyState::Held;
+            println!("Edge Collapse");
+            let initial_count = mesh.triangle_count();
+            match mesh.collapse_best_edge() {
+                Ok(i) => update = true,
+                Err(e) => {
+                    println!("{:?}", e);
+                },
             }
             println!("Triangle Count: {} -> {}\n", initial_count, mesh.triangle_count());
         }
