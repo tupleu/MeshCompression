@@ -13,6 +13,8 @@ const ANCHOR_X: u16 = 1;
 const ANCHOR_Y: u16 = 2;
 const ANCHOR_BOTH: u16 = 3;
 
+const EPSILON: f32 = 0.001_f32;
+
 
 
 ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -196,9 +198,8 @@ impl EdgePointer {
 	}
     pub fn energy(&self) -> f32 {
         let length: f32 = self.length();
-        assert!(length != 0_f32);
-        let color_diff: f32 = distance(self.vertex().color(), self.next().vertex().color()) / length;
-        length + color_diff
+        let color_diff: f32 = distance(self.vertex().color(), self.next().vertex().color());
+        length + color_diff/(length+1.0)
     }
 	
 
@@ -358,7 +359,7 @@ impl Mesh {
         }
     }
 	
-	pub fn from_image(dynamic_image: DynamicImage) -> Self { 
+	pub fn from_image1(dynamic_image: DynamicImage) -> Self { 
 		let width = dynamic_image.width() as usize;
 		let height = dynamic_image.height() as usize;
 		println!("{}x{}", width, height);
@@ -369,16 +370,15 @@ impl Mesh {
 		let max_dimension = (if width > height { width - 1 } else { height - 1 } as f32) / 2.0;
 		// Create vertices
 		for (x, y, pixel) in image.enumerate_pixels() {
-			
-			let vx = (x as f32 / max_dimension as f32) - 1.0;
-			let vy = (y as f32 / max_dimension as f32) - 1.0;
+			let vx = (x as f32) / max_dimension - 1.0;
+			let vy = -1_f32*((y as f32) / max_dimension - 1.0);
 			let anchor = match (x as usize + 1, y as usize + 1) {
 				(i, j) if (i == 1 || i == width) && (j == 1 || j == height) => ANCHOR_BOTH,
 				(i, j) if (i == 1 || i == width) => ANCHOR_X,
 				(i, j) if (j == 1 || j == height) => ANCHOR_Y,
 				_ => ANCHOR_NONE,
 			};
-			let v = mesh.add_vertex([vx, vy*-1.0, 0.0], pixel.0);
+			let v = mesh.add_vertex([vx, vy, 0.0], pixel.0);
 			v.set_anchor(anchor);
 		
 		}
@@ -396,6 +396,191 @@ impl Mesh {
 		}
 		println!("{}/{} triangles", mesh.triangles.len(), (width-1)*(height-1)*2);
 		println!("{}/{} edges", mesh.edges.len(), (width-1)*(height-1)*6);
+		mesh
+	}
+
+	pub fn from_image2(dynamic_image: DynamicImage) -> Self { 
+		let width = dynamic_image.width() as usize;
+		let height = dynamic_image.height() as usize;
+		println!("{}x{}", width, height);
+		let image = dynamic_image.to_rgb32f();
+		
+		let mut mesh = Mesh::new();
+
+		let max_dimension = (if width > height { width - 1 } else { height - 1 } as f32) / 2.0;
+		// Create vertices
+		for (x, y, pixel) in image.enumerate_pixels() {
+			let vx = (x as f32) / max_dimension - 1.0;
+			let vy = -1_f32*((y as f32) / max_dimension - 1.0);
+			let anchor = match (x as usize + 1, y as usize + 1) {
+				(i, j) if (i == 1 || i == width) && (j == 1 || j == height) => ANCHOR_BOTH,
+				(i, j) if (i == 1 || i == width) => ANCHOR_X,
+				(i, j) if (j == 1 || j == height) => ANCHOR_Y,
+				_ => ANCHOR_NONE,
+			};
+			let v = mesh.add_vertex([vx, vy, 0.0], pixel.0);
+			v.set_anchor(anchor);
+		
+		}
+		println!("{}/{} vertices", mesh.vertices.len(), (width)*(height));
+		// Create triangles
+		for y in 0..height-1 {
+			for x in 0..width-1 {
+                let i1 = (x + (width * y)) as Index;
+                let i2 = (x + (width * y) + 1) as Index;
+                let i3 = (x + (width * (y+1)) + 1) as Index;
+                let i4 = (x + (width * (y+1))) as Index;
+                if (x+y) & 1 == 1 {
+                    mesh.add_triangle(i1, i4, i2);
+                    mesh.add_triangle(i4, i3, i2);
+                }
+                else {
+                    mesh.add_triangle(i1, i3, i2);
+                    mesh.add_triangle(i4, i3, i1);
+                }
+			}
+		}
+		println!("{}/{} triangles", mesh.triangles.len(), (width-1)*(height-1)*2);
+		println!("{}/{} edges", mesh.edges.len(), (width-1)*(height-1)*6);
+		mesh
+	}
+	pub fn from_image3(dynamic_image: DynamicImage) -> Self { 
+        todo!("not finished");
+		// let width = dynamic_image.width() as usize;
+		// let height = dynamic_image.height() as usize;
+		// println!("{}x{}", width, height);
+		// let image = dynamic_image.to_rgb32f();
+		// 
+		// let mut mesh = Mesh::new();
+		//
+		// let max_dimension = (if width > height { width - 1 } else { height - 1 } as f32) / 2.0;
+		// // Create vertices
+		// for (x, y, pixel) in image.enumerate_pixels() {
+		// 	let vx = (x as f32) / max_dimension - 1.0;
+		// 	let vy = -1_f32*((y as f32) / max_dimension - 1.0);
+		// 	let anchor = match (x as usize + 1, y as usize + 1) {
+		// 		(i, j) if (i == 1 || i == width) && (j == 1 || j == height) => ANCHOR_BOTH,
+		// 		(i, j) if (i == 1 || i == width) => ANCHOR_X,
+		// 		(i, j) if (j == 1 || j == height) => ANCHOR_Y,
+		// 		_ => ANCHOR_NONE,
+		// 	};
+		// 	let v = mesh.add_vertex([vx, vy, 0.0], pixel.0);
+		// 	v.set_anchor(anchor);
+		//
+  //           if x > 0 && y > 0 {
+  //               let vx = (x as f32 - 0.5) / max_dimension - 1.0;
+  //               let vy = -1_f32*((y as f32 - 0.5) / max_dimension - 1.0);
+		// 	    mesh.add_vertex([vx, vy, 0.0], [0_f32, 0_f32, 0_f32]);
+  //           }
+		// 
+		// }
+		// println!("{}/{} vertices", mesh.vertices.len(), (width)*(height));
+		// // Create triangles
+		// for y in 0..height-1 {
+		// 	for x in 0..width-1 {
+  //               let i1 = (x + (width * y)) as Index;
+  //               let i2 = (x + (width * y) + 1) as Index;
+  //               let i3 = (x + (width * (y+1)) + 1) as Index;
+  //               let i4 = (x + (width * (y+1))) as Index;
+  //               if (x+y) & 1 == 1 {
+  //                   mesh.add_triangle(i1, i4, i2);
+  //                   mesh.add_triangle(i4, i3, i2);
+  //               }
+  //               else {
+  //                   mesh.add_triangle(i1, i3, i2);
+  //                   mesh.add_triangle(i4, i3, i1);
+  //               }
+		// 	}
+		// }
+		// println!("{}/{} triangles", mesh.triangles.len(), (width-1)*(height-1)*2);
+		// println!("{}/{} edges", mesh.edges.len(), (width-1)*(height-1)*6);
+		// mesh
+	}
+	pub fn from_image4(dynamic_image: DynamicImage) -> Self { 
+        let offset = 0_f32;
+		let width = dynamic_image.width() as usize;
+		let height = dynamic_image.height() as usize;
+		println!("{}x{}", width, height);
+		let image = dynamic_image.to_rgb32f();
+		
+		let mut mesh = Mesh::new();
+
+		let max_dimension = (if width > height { width } else { height } as f32) / 2.0;
+		// Create vertices
+		for (x, y, pixel) in image.enumerate_pixels() {
+			let v1 = mesh.add_vertex([(x as f32) / max_dimension - 1.0,        -1_f32*((y as f32) / max_dimension - 1.0), 0.0], pixel.0);
+			let v2 = mesh.add_vertex([(x as f32 + 1.0-offset) / max_dimension - 1.0,  -1_f32*((y as f32) / max_dimension - 1.0), 0.0], pixel.0);
+			let v3 = mesh.add_vertex([(x as f32) / max_dimension - 1.0,        -1_f32*((y as f32 + 1.0-offset) / max_dimension - 1.0), 0.0], pixel.0);
+			let v4 = mesh.add_vertex([(x as f32 + 1.0-offset) / max_dimension - 1.0,  -1_f32*((y as f32 + 1.0-offset) / max_dimension - 1.0), 0.0], pixel.0);
+
+            let xi = x as usize;
+            let yi = y as usize;
+
+            if xi == 0 {
+                v1.set_anchor(ANCHOR_X);
+                v3.set_anchor(ANCHOR_X);
+            }
+            if xi == width-1 {
+                v2.set_anchor(ANCHOR_X);
+                v4.set_anchor(ANCHOR_X);
+            }
+            if yi == 0 {
+                v1.set_anchor(ANCHOR_Y);
+                v2.set_anchor(ANCHOR_Y);
+            }
+            if yi == height-1 {
+                v3.set_anchor(ANCHOR_Y);
+                v4.set_anchor(ANCHOR_Y);
+            }
+
+            if xi == 0 && yi == 0 {
+                v1.set_anchor(ANCHOR_BOTH);
+            }
+            if xi == width-1 && yi == 0 {
+                v2.set_anchor(ANCHOR_BOTH);
+            }
+            if xi == 0 && yi == height-1 {
+                v3.set_anchor(ANCHOR_BOTH);
+            }
+            if xi == width-1 && yi == height-1 {
+                v4.set_anchor(ANCHOR_BOTH);
+            } 
+		}
+		println!("{}/{} vertices", mesh.vertices.len(), 4*width*height);
+		// Create triangles
+        for x in 0..width {
+            for y in 0..height {
+                let i1 = 4*(x + (width * y)) as Index;
+
+                mesh.add_triangle(i1, i1+2, i1+1);
+                mesh.add_triangle(i1+2, i1+3, i1+1);
+
+                if x < width-1 {
+                    let i2 = 4*(x + (width * y) + 1) as Index;
+                    // mesh.add_triangle(i1+1, i1+3, i2);
+                    // mesh.add_triangle(i1+3, i2+2, i2);
+                    mesh.add_triangle(i1+1, i2+2, i2);
+                    mesh.add_triangle(i1+3, i2+2, i1+1);
+                }
+                if y < height-1 {
+                    let i3 = 4*(x + (width * (y+1))) as Index;
+                    // mesh.add_triangle(i1+2, i3, i1+3);
+                    // mesh.add_triangle(i3, i3+1, i1+3);
+                    mesh.add_triangle(i1+2, i3+1, i1+3);
+                    mesh.add_triangle(i3, i3+1, i1+2);
+                }
+                if x < width-1 && y < height-1 {
+                    let i2 = 4*(x + (width * y) + 1) as Index;
+                    let i3 = 4*(x + (width * (y+1))) as Index;
+                    let i4 = 4*(x + (width * (y+1)) + 1) as Index;
+                    mesh.add_triangle(i1+3, i3+1, i2+2);
+                    mesh.add_triangle(i3+1, i4, i2+2);
+                }
+			}
+		}
+        let tri_count = 2*width*height + 2*(width-1)*height + 2*width*(height-1) + 2*(width-1)*(height-1);
+		println!("{}/{} triangles", mesh.triangles.len(), tri_count);
+		println!("{}/{} edges", mesh.edges.len(), 3*tri_count);
 		mesh
 	}
 	
@@ -449,22 +634,37 @@ impl Mesh {
 		let (s1, s2) = (v1.state(), v2.state());
 		let (c1, c2) = (v1.color(), v2.color());
 		//println!("{:?}",v2.position());
+        // println!("{:?},{} {:?},{}",p1,a1,p2,a2);
 		let new_position = match (a1, a2) {
-			(ANCHOR_NONE, ANCHOR_NONE) 	=>	average(p1, p2),
-			(ANCHOR_BOTH, ANCHOR_NONE) 	=>	p1,
-			(ANCHOR_NONE, ANCHOR_BOTH) 	=>	p2,
+			(ANCHOR_NONE, ANCHOR_NONE) => average(p1, p2),
+			(ANCHOR_BOTH, ANCHOR_NONE) => p1,
+			(ANCHOR_NONE, ANCHOR_BOTH) => p2,
+
+			(ANCHOR_BOTH, ANCHOR_X) if (p1[0] - p2[0]).abs() < EPSILON => p1,
+			(ANCHOR_X, ANCHOR_BOTH) if (p1[0] - p2[0]).abs() < EPSILON => p2,
+			(ANCHOR_X, ANCHOR_NONE) if (p1[0] - p2[0]).abs() < EPSILON  => p1,
+			(ANCHOR_NONE, ANCHOR_X) if (p1[0] - p2[0]).abs() < EPSILON  => p2,
+
+			(ANCHOR_BOTH, ANCHOR_Y) if (p1[1] - p2[1]).abs() < EPSILON => p1,
+			(ANCHOR_Y, ANCHOR_BOTH) if (p1[1] - p2[1]).abs() < EPSILON => p2,
+			(ANCHOR_Y, ANCHOR_NONE) if (p1[1] - p2[1]).abs() < EPSILON  => p1,
+			(ANCHOR_NONE, ANCHOR_Y) if (p1[1] - p2[1]).abs() < EPSILON  => p2,
+
+			(ANCHOR_X, ANCHOR_X) if (p1[0] - p2[0]).abs() < EPSILON  => average(p1, p2),
+			(ANCHOR_Y, ANCHOR_Y) if (p1[1] - p2[1]).abs() < EPSILON  => average(p1, p2),
 			_							=>	return Err("Invalid collapse".to_string()),
 		};
 
 		let new_color = average(c1, c2);
 		
 		let new_state = if s1 > s2 { s1 + 1 } else { s2 + 1 };
-		let new_anchor = match (a1, a2) {
-			(a, b) if a == b	=> 	a,
-			(a, ANCHOR_NONE)    =>	a,
-			(ANCHOR_NONE, b)    =>	b,
-			_ 					=>  panic!("How did you get here cotton eyed joe?"),
-		};
+		// let new_anchor = match (a1, a2) {
+		// q	(a, b) if a == b	=> 	a,
+		// 	(a, ANCHOR_NONE)    =>	a,
+		// 	(ANCHOR_NONE, b)    =>	b,
+		// 	_ 					=>  panic!("How did you get here cotton eyed joe?"),
+		// };
+        let new_anchor = a1 | a2;
 		
 		// update the vertex
 		v2.set_color(new_color);
@@ -574,7 +774,6 @@ impl Mesh {
 		self.edges.last().unwrap().clone()
 	}
 	fn add_triangle(&mut self, i1: Index, i2: Index, i3: Index) {
-		
 		let v1 = self.vertices[i1 as usize].clone();
 		let v2 = self.vertices[i2 as usize].clone();
 		let v3 = self.vertices[i3 as usize].clone();
