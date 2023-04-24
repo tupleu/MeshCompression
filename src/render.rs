@@ -4,6 +4,7 @@ mod mesh_refactor;
 use mesh_refactor::{Vertex};
 pub use mesh_refactor::{VertexPointer, EdgePointer, TrianglePointer, Mesh, RANDOM};
 
+
 use wgpu::util::DeviceExt;
 use winit::{
     event::*,
@@ -45,6 +46,7 @@ enum KeyState {
 
 struct Controller {
     key_x_state: KeyState,
+    key_s_state: KeyState,
     key_w_state: KeyState,
     key_z_state: KeyState,
 }
@@ -53,6 +55,7 @@ impl Controller {
     fn new() -> Self {
         Self {
             key_x_state: KeyState::Released,
+            key_s_state: KeyState::Released,
             key_w_state: KeyState::Released,
             key_z_state: KeyState::Released,
         }
@@ -76,6 +79,15 @@ impl Controller {
                         }
                         if !is_pressed && self.key_x_state == KeyState::Held {
                             self.key_x_state = KeyState::Released
+                        }
+                        true
+                    },
+                    VirtualKeyCode::S => {
+                        if is_pressed && self.key_s_state == KeyState::Released {
+                            self.key_s_state = KeyState::Pressed
+                        }
+                        if !is_pressed && self.key_s_state == KeyState::Held {
+                            self.key_s_state = KeyState::Released
                         }
                         true
                     },
@@ -110,10 +122,27 @@ impl Controller {
             self.key_x_state = KeyState::Held;
             println!("Edge Collapse");
             let initial_count = mesh.triangle_count();
-			let edge = mesh.get_random_edge();
-            match mesh.collapse_edge(edge) {
+            let target = ((initial_count as f32)*0.9).round() as usize;
+            while mesh.triangle_count() >= target {
+                match mesh.collapse_best_edge() {
+                    Ok(i) => update = true,
+                    Err(e) => {
+                        println!("{:?}", e);
+                        break;
+                    },
+                }
+            }
+            println!("Triangle Count: {} -> {}\n", initial_count, mesh.triangle_count());
+        }
+        if self.key_s_state == KeyState::Pressed {
+            self.key_s_state = KeyState::Held;
+            println!("Edge Collapse");
+            let initial_count = mesh.triangle_count();
+            match mesh.collapse_best_edge() {
                 Ok(i) => update = true,
-                Err(e) => println!("{:?}", e),
+                Err(e) => {
+                    println!("{:?}", e);
+                },
             }
             println!("Triangle Count: {} -> {}\n", initial_count, mesh.triangle_count());
         }

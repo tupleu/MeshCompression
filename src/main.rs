@@ -54,20 +54,13 @@ fn main() {
     };
 	
 	let img = image::open(img_path).unwrap();
-	let mut img_mesh = Mesh::from_image(img, random_seed);
+	let mut img_mesh = Mesh::from_image1(img, random_seed);
 
 	let num_collapses = ((1.0 / 6.0) * percent_collapses * img_mesh.edge_count() as f64) as usize;
 	let num_uncollapses = (percent_uncollapses * num_collapses as f64) as usize;
 
 	img_mesh.do_n_edge_collapses(num_collapses, RANDOM);
 	img_mesh.undo_n_edge_collapses_at(num_uncollapses, [0.0, 0.0, 0.0]);
-	
-	
-	//for _ in 0..num_collapses { img_mesh.undo_nearest_edge_collapse(0.0, 0.0); }
-	//for _ in 0..num_uncollapses { img_mesh.undo_last_edge_collapse(); }
-	
-    //println!("{:?}",img_mesh.tri_count());
-	
 	
 	// specific rules for collapsing - Brian
 	// * color
@@ -82,6 +75,4 @@ fn main() {
 	
 
 	pollster::block_on(run(img_mesh, wire));
-
-
 }
