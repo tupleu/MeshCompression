@@ -1,11 +1,13 @@
 #![allow(unused_imports)]
 #![allow(dead_code)]
 #![allow(unused_variables)]
+#![allow(unused_assignments)]
+#![allow(unused_must_use)]
 
 use std::env;
 
 mod render;
-use render::{Mesh, VertexPointer, run};
+use render::{Mesh, VertexPointer, run, RANDOM};
 
 use image::GenericImageView;
 
@@ -32,44 +34,40 @@ fn main() {
     } else {
         false
     };
-	let num_collapses = if args.len() > 3{
-        args[3].parse::<usize>().unwrap()
-    } else {
-        1
-    };
-	let num_undos = if args.len() > 4{
-        args[4].parse::<usize>().unwrap()
+	// random seed
+	let random_seed = if args.len() > 3{
+        args[3].parse::<u64>().unwrap()
     } else {
         0
     };
+	// collapses
+	let percent_collapses = if args.len() > 4{
+        args[4].parse::<f64>().unwrap()
+    } else {
+        0.0
+    };
+	// num uncollapses
+	let percent_uncollapses = if args.len() > 5{
+        args[5].parse::<f64>().unwrap()
+    } else {
+        0.0
+    };
+	
 	let img = image::open(img_path).unwrap();
-	let mut img_mesh = Mesh::from_image(img);
-	
+	let mut img_mesh = Mesh::from_image(img, random_seed);
 
-    println!("{:?}", img_mesh.triangle_count());
-	
+	let num_collapses = ((1.0 / 6.0) * percent_collapses * img_mesh.edge_count() as f64) as usize;
+	let num_uncollapses = (percent_uncollapses * num_collapses as f64) as usize;
 
+	img_mesh.do_n_edge_collapses(num_collapses, RANDOM);
+	img_mesh.undo_n_edge_collapses_at(num_uncollapses, [0.0, 0.0, 0.0]);
 	
-	  
-    
 	
-    for _ in 0..num_collapses {
-        let edge = img_mesh.get_random_edge();
-        //let color_diff = Mesh::color_diff(&edge);
-        // if color_diff == [0.0,0.0,0.0] {
-            match img_mesh.collapse_edge(edge) {
-                Ok(i) => continue,
-                Err(e) => println!("{:?}", e),
-                // Err(e) => (),
-            }
-        // }
-    }
-		
-	
-	//for _ in 0..num_undos { img_mesh.undo_nearest_edge_collapse(0.0, 0.0); }
+	//for _ in 0..num_collapses { img_mesh.undo_nearest_edge_collapse(0.0, 0.0); }
+	//for _ in 0..num_uncollapses { img_mesh.undo_last_edge_collapse(); }
 	
     //println!("{:?}",img_mesh.tri_count());
-
+	
 	
 	// specific rules for collapsing - Brian
 	// * color
