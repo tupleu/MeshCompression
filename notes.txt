@@ -1,0 +1,9 @@
+
+cd C:\Users\ellerd\Documents\GitHub\MeshCompression
+
+.\target\debug\mesh_compression.exe .\tests\mario.webp wire 0 0.9 0.0
+.\target\debug\mesh_compression.exe .\tests\test1.jpg wire 0 0.9 0.0
+.\target\debug\mesh_compression.exe .\tests\test2-small.jpeg wire 0 0.9 0.0
+.\target\debug\mesh_compression.exe .\tests\test3.jpg wire 0 0.9 0.0
+.\target\debug\mesh_compression.exe .\tests\test4.jpg wire 0 0.9 0.0
+

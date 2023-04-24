@@ -1,8 +1,9 @@
 use std::iter;
 mod mesh_refactor;
 
-use mesh_refactor::Vertex;
-pub use mesh_refactor::{VertexPointer, EdgePointer, TrianglePointer, Mesh};
+use mesh_refactor::{Vertex};
+pub use mesh_refactor::{VertexPointer, EdgePointer, TrianglePointer, Mesh, RANDOM};
+
 
 use wgpu::util::DeviceExt;
 use winit::{
@@ -48,6 +49,7 @@ struct Controller {
     key_s_state: KeyState,
     key_r_state: KeyState,
     key_w_state: KeyState,
+    key_z_state: KeyState,
 }
 
 impl Controller {
@@ -57,6 +59,7 @@ impl Controller {
             key_s_state: KeyState::Released,
             key_r_state: KeyState::Released,
             key_w_state: KeyState::Released,
+            key_z_state: KeyState::Released,
         }
     }
 
@@ -105,6 +108,15 @@ impl Controller {
                         }
                         if !is_pressed && self.key_w_state == KeyState::Held {
                             self.key_w_state = KeyState::Released
+                        }
+                        true
+                    }
+					VirtualKeyCode::Z => {
+                        if is_pressed && self.key_z_state == KeyState::Released {
+                            self.key_z_state = KeyState::Pressed
+                        }
+                        if !is_pressed && self.key_z_state == KeyState::Held {
+                            self.key_z_state = KeyState::Released
                         }
                         true
                     }
@@ -160,6 +172,14 @@ impl Controller {
                 }
             }
             println!("Triangle Count: {} -> {}\n", initial_count, mesh.triangle_count());
+        }
+		if self.key_z_state == KeyState::Pressed {
+            self.key_z_state = KeyState::Held;
+            println!("Edge Uncollapse");
+			let initial_count = mesh.triangle_count();
+			mesh.undo_last_edge_collapse();
+			update = true;
+			println!("Triangle Count: {} -> {}\n", initial_count, mesh.triangle_count());
         }
         update
     }
@@ -391,6 +411,7 @@ impl State {
     fn update_buffers(&mut self) {
         let vertices = self.mesh.extract_vertices();
         let indices = self.mesh.extract_indices();
+		println!("Drawing {} triangles!", indices.len() / 3);
         self.vertex_buffer = self.device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("Vertex Buffer"),
             contents: bytemuck::cast_slice(&vertices),
