@@ -2,7 +2,7 @@ use std::iter;
 mod mesh_refactor;
 
 use mesh_refactor::{Vertex};
-pub use mesh_refactor::{VertexPointer, EdgePointer, TrianglePointer, Mesh, RANDOM};
+pub use mesh_refactor::{VertexPointer, EdgePointer, TrianglePointer, Mesh, RANDOM, BEST};
 
 
 use wgpu::util::DeviceExt;

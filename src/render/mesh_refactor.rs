@@ -22,6 +22,7 @@ const ANCHOR_Y: u16 = 2;
 const ANCHOR_BOTH: u16 = 3;
 
 pub const RANDOM: usize = 0;
+pub const BEST: usize = 1;
 const EPSILON: f32 = 0.001_f32;
 
 
@@ -675,12 +676,12 @@ impl Mesh {
 		let i = self.r.gen_range(0..self.edges.len()-1);
 		self.edges[i].clone()
 	}
-	pub fn get_best_edge(&self) -> EdgePointer { 
+	pub fn get_best_edge(&self) -> EdgePointer {
         let mut index:usize = 0;
         let mut min: f32 = self.edges[0].energy();
         for (i,edge) in self.edges.iter().enumerate() {
             let energy = edge.energy();
-            println!("{:?}", energy);
+            //println!("{:?}", energy);
             if energy < min {
                 min = energy;
                 index = i;
@@ -749,14 +750,19 @@ impl Mesh {
 		bar.inc(1);
 		while m > 0 {
 			bar.tick();
-			println!("{}", self.edges.len());
+			//println!("{}", self.edges.len());
 			let edge = match method {
-				_ => self.get_random_edge(),
+				BEST => { match self.collapse_best_edge() {
+							Err(e) => continue,
+							_ => {},
+						}},
+				_ => { let edge = self.get_random_edge();
+						match self.collapse_edge(edge) {
+						Err(e) => continue,
+						_ => {},
+					 }},
 			};
-			match self.collapse_edge(edge) {
-                Err(e) => continue,
-				_ => {},
-            }
+			
 			
 			bar.inc(1);
 			m -= 1;
