@@ -3,6 +3,7 @@ use std::cell::RefCell;
 use image::DynamicImage;
 use std::collections::{HashMap, HashSet, BTreeSet, BinaryHeap};
 use rand::Rng;
+use rand::seq::SliceRandom;
 use std::cmp::{self, Reverse};
 
 type Index = u32;
@@ -328,8 +329,6 @@ impl TrianglePointer {
 	
 	// Setters ////////////////////////////////////////////////////////////////////////////////
 	pub fn set_index(&self, new_index: Index) { self.triangle.borrow_mut().index = new_index }
-	
-
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -450,7 +449,7 @@ impl Mesh {
 		// let height = dynamic_image.height() as usize;
 		// println!("{}x{}", width, height);
 		// let image = dynamic_image.to_rgb32f();
-		// 
+		//
 		// let mut mesh = Mesh::new();
 		//
 		// let max_dimension = (if width > height { width - 1 } else { height - 1 } as f32) / 2.0;
@@ -467,29 +466,29 @@ impl Mesh {
 		// 	let v = mesh.add_vertex([vx, vy, 0.0], pixel.0);
 		// 	v.set_anchor(anchor);
 		//
-  //           if x > 0 && y > 0 {
-  //               let vx = (x as f32 - 0.5) / max_dimension - 1.0;
-  //               let vy = -1_f32*((y as f32 - 0.5) / max_dimension - 1.0);
+        //     if x > 0 && y > 0 {
+        //         let vx = (x as f32 - 0.5) / max_dimension - 1.0;
+        //         let vy = -1_f32*((y as f32 - 0.5) / max_dimension - 1.0);
 		// 	    mesh.add_vertex([vx, vy, 0.0], [0_f32, 0_f32, 0_f32]);
-  //           }
-		// 
+        //     }
+		//
 		// }
 		// println!("{}/{} vertices", mesh.vertices.len(), (width)*(height));
 		// // Create triangles
 		// for y in 0..height-1 {
 		// 	for x in 0..width-1 {
-  //               let i1 = (x + (width * y)) as Index;
-  //               let i2 = (x + (width * y) + 1) as Index;
-  //               let i3 = (x + (width * (y+1)) + 1) as Index;
-  //               let i4 = (x + (width * (y+1))) as Index;
-  //               if (x+y) & 1 == 1 {
-  //                   mesh.add_triangle(i1, i4, i2);
-  //                   mesh.add_triangle(i4, i3, i2);
-  //               }
-  //               else {
-  //                   mesh.add_triangle(i1, i3, i2);
-  //                   mesh.add_triangle(i4, i3, i1);
-  //               }
+        //         let i1 = (x + (width * y)) as Index;
+        //         let i2 = (x + (width * y) + 1) as Index;
+        //         let i3 = (x + (width * (y+1)) + 1) as Index;
+        //         let i4 = (x + (width * (y+1))) as Index;
+        //         if (x+y) & 1 == 1 {
+        //             mesh.add_triangle(i1, i4, i2);
+        //             mesh.add_triangle(i4, i3, i2);
+        //         }
+        //         else {
+        //             mesh.add_triangle(i1, i3, i2);
+        //             mesh.add_triangle(i4, i3, i1);
+        //         }
 		// 	}
 		// }
 		// println!("{}/{} triangles", mesh.triangles.len(), (width-1)*(height-1)*2);
@@ -755,6 +754,18 @@ impl Mesh {
     pub fn collapse_best_edge(&mut self) -> Result<(), String> {
         let mut edge_pq: BinaryHeap<_> = self.edges.iter().map(|x| x.clone()).map(Reverse).collect();
         while let Some(Reverse(edge)) = edge_pq.pop() {
+            match self.collapse_edge(edge) {
+                Ok(()) => return Ok(()),
+                Err(e) => continue,
+            }
+        }
+        Err("no valid collapses".to_string())
+    }
+    pub fn collapse_random_edge(&mut self) -> Result<(), String> {
+        let mut indices: Vec<usize> = (0..self.edges.len()-1).collect();
+        indices.shuffle(&mut rand::thread_rng());
+        while let Some(i) = indices.pop() {
+            let edge = self.edges[i].clone();
             match self.collapse_edge(edge) {
                 Ok(()) => return Ok(()),
                 Err(e) => continue,
