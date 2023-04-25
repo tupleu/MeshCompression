@@ -122,16 +122,16 @@ impl Controller {
             self.key_x_state = KeyState::Held;
             println!("Edge Collapse");
             let initial_count = mesh.triangle_count();
-            let target = ((initial_count as f32)*0.9).round() as usize;
-            while mesh.triangle_count() >= target {
+            //let target = ((initial_count as f32)*0.9).round() as usize;
+            //while mesh.triangle_count() >= target {
                 match mesh.collapse_best_edge() {
                     Ok(i) => update = true,
                     Err(e) => {
                         println!("{:?}", e);
-                        break;
+                        //break;
                     },
                 }
-            }
+            //}
             println!("Triangle Count: {} -> {}\n", initial_count, mesh.triangle_count());
         }
         if self.key_s_state == KeyState::Pressed {

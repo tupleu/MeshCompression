@@ -103,7 +103,7 @@ fn new_progress_bar(length: u64) -> ProgressBar {
 				  w,
 				  "{:#}",
 				  HumanDuration(Duration::from_millis(
-					  (s.elapsed().as_millis() * (len as u128 - pos as u128) / (pos as u128))
+					  (s.elapsed().as_millis() * (len as i128 - pos as i128).abs() as u128 / (pos as u128))
 						  as u64
 				  ))
 			  )
@@ -246,6 +246,7 @@ impl EdgePointer {
 			current_edge = current_edge.opposite().unwrap().next();
 			if current_edge.index() == self.index() { break; }
 			assert_eq!(current_edge.vertex().index(), self_vi);
+			
 		}
 		current_edge = self.next().next();
 		if !current_edge.has_opposite() { return results; }
@@ -718,12 +719,19 @@ impl Mesh {
 		let bar = new_progress_bar(n as u64);
 		bar.inc(1);
 		for _ in 0..n {
+			println!("{}", self.history.len());
 			if self.history.len() == 0 { break; }
 			let mut history_index = 0;
 			let mut found = false;
 			for (point, index) in self.history_map.iter_nearest(&at, &distance::squared_euclidean).unwrap() {
+				println!("{}", index);
+				if *index == self.history.len() as u32 {
+					
+					break;
+				}
 				bar.tick();
 				let (il, ir, is, _, (_, _)) = self.history[*index as usize];
+				if il == is && is == 0 { continue; }
 				let (vl, vs) = ( 
 								self.vertices[il as usize].clone(),
 								self.vertices[is as usize].clone(),
@@ -858,13 +866,26 @@ impl Mesh {
 			edges[right_edge_idx].set_opposite(&Some(tr.edge()));
 			tr.edge().set_opposite(&Some(edges[right_edge_idx].clone()));
 		}
-		edges[left_edge_idx].opposite().unwrap().set_opposite(&Some(tl.edge().next().next()));
+		if edges[left_edge_idx].has_opposite() {
+			edges[left_edge_idx].opposite().unwrap().set_opposite(&Some(tl.edge().next().next()));
+		}
 		tl.edge().next().next().set_opposite(&edges[left_edge_idx].opposite());
 		
 		edges[left_edge_idx].set_opposite(&Some(tl.edge()));
 		tl.edge().set_opposite(&Some(edges[left_edge_idx].clone()));
 		// done!
-		self.history.pop();
+		self.history[history_idx].0 = 0;
+		self.history[history_idx].2 = 0;
+		/*
+		self.history.swap_remove(history_idx);
+		
+		if history_idx == self.history.len() { return true; }
+		
+		let moved_history = &mut self.history[history_idx];
+		let v = &self.vertices[moved_history.3 as usize];
+		self.history_map.remove(&v.pos(), &(self.history.len() as u32));		
+		self.history_map.add(v.pos(), history_idx as u32);
+		*/
 		
 		true
 	}
@@ -979,14 +1000,14 @@ impl Mesh {
 			}
 		}
 		// update the history
-		
+		self.history_map.add(v1.pos(), self.history.len() as u32);
 		self.history.push(( edge.next().next().vertex().index(),
 							if edge.has_opposite() { Some(edge.opposite().unwrap().next().next().vertex().index()) } else { None },
 							v2.index(),
 							v1.index(),
 							(p2[0] - new_position[0], p2[1] - new_position[1])
 						));
-		self.history_map.add(v1.pos(), self.history.len() as u32);
+		
 		//old = dx + new
 		//old - new = dx
 		// reconnect the opposites
